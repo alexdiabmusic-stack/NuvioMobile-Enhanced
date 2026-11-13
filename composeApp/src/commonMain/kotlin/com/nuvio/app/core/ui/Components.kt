@@ -414,9 +414,11 @@ fun NuvioInputField(
     shape: Shape = MaterialTheme.nuvio.shapes.compactCard,
     trailingContent: (@Composable (() -> Unit))? = null,
     containerColor: Color = MaterialTheme.nuvio.colors.surfaceCard,
+    leadingContent: (@Composable (() -> Unit))? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     OutlinedTextField(
+        leadingIcon = leadingContent,
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),

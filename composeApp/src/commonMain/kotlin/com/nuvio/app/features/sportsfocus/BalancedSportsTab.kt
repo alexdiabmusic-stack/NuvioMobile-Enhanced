@@ -59,16 +59,17 @@ fun BalancedSportsTab(
     PlatformBackHandler(enabled = view != BalancedSportsView.Home, onBack = goHome)
 
     when (view) {
-        BalancedSportsView.Home -> SportsFocusHome(
+        BalancedSportsView.Home -> SportsShowcaseHome(
             actions = actions,
             onOpenNews = { viewName = BalancedSportsView.Discover.name },
             onOpenArticle = onOpenArticle,
             onOpenFollowing = { viewName = BalancedSportsView.Following.name },
             onOpenLive = onOpenLive,
+            onChooseTeams = { viewName = BalancedSportsView.Teams.name },
             modifier = modifier.fillMaxSize(),
-            showGreeting = false,
-            teamsHeader = { MyTeamsStrip(onChoose = { viewName = BalancedSportsView.Teams.name }) },
         )
+        // Its own page, with its own header.
+        BalancedSportsView.Teams -> TeamPickerScreen(actions = actions, onDone = goHome, modifier = modifier.fillMaxSize())
         else -> Column(modifier.fillMaxSize().background(tokens.colors.background)) {
             Row(
                 Modifier.fillMaxWidth().statusBarsPadding().height(44.dp).clickable(onClick = goHome).padding(horizontal = 16.dp),

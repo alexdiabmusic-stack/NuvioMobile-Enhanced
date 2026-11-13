@@ -33,6 +33,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.Chip
+import com.nuvio.app.core.ui.PillChip
 import com.nuvio.app.core.ui.NuvioScreenHeader
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
@@ -90,6 +92,9 @@ import com.nuvio.app.features.sports.ui.isMine
 import com.nuvio.app.features.sports.ui.use24h
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.live_tv_title
+import org.jetbrains.compose.resources.stringResource
 
 internal enum class LiveSegment(val label: String) { Channels("Channels"), Guide("Guide"), Sports("Sports") }
 
@@ -97,29 +102,36 @@ internal enum class LiveSegment(val label: String) { Channels("Channels"), Guide
 internal fun ExperienceMode.liveSegments(): List<LiveSegment> =
     if (this == ExperienceMode.Balanced) LiveSegment.entries.filter { it != LiveSegment.Sports } else LiveSegment.entries
 
-/** A switch under the Live title, the way StadiaTV lays it out. */
+/** A switch under the Live title: a white thumb that slides between the segments. */
 @Composable
 internal fun LiveSegmentedControl(selected: LiveSegment, onSelect: (LiveSegment) -> Unit, modifier: Modifier = Modifier) {
     val tokens = MaterialTheme.nuvio
     val mode by ExperienceRepository.mode.collectAsStateWithLifecycle()
-    Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(NuvioTokens.Radius.lg)).background(tokens.colors.surface).padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    val segments = mode.liveSegments()
+    val index = segments.indexOf(selected).coerceAtLeast(0)
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(50)).background(tokens.colors.textPrimary.copy(alpha = 0.10f)).padding(3.dp),
     ) {
-        mode.liveSegments().forEach { segment ->
-            val on = segment == selected
-            Box(
-                Modifier.weight(1f).clip(RoundedCornerShape(NuvioTokens.Radius.md))
-                    .background(if (on) tokens.colors.surfaceElevated else Color.Transparent)
-                    .clickable { onSelect(segment) }.padding(vertical = NuvioTokens.Space.s8),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    segment.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (on) tokens.colors.textPrimary else tokens.colors.textMuted,
-                    fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
-                )
+        val segmentWidth = maxWidth / segments.size.coerceAtLeast(1)
+        val thumbX by androidx.compose.animation.core.animateDpAsState(
+            segmentWidth * index,
+            androidx.compose.animation.core.spring(dampingRatio = 0.82f, stiffness = 520f),
+        )
+        Box(Modifier.offset(x = thumbX).width(segmentWidth).fillMaxHeight().clip(RoundedCornerShape(50)).background(tokens.colors.textPrimary))
+        Row(Modifier.fillMaxSize()) {
+            segments.forEach { segment ->
+                val on = segment == selected
+                val color by androidx.compose.animation.animateColorAsState(if (on) tokens.colors.background else tokens.colors.textPrimary.copy(alpha = 0.75f))
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(50))
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                        ) { onSelect(segment) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(segment.label, style = MaterialTheme.typography.labelLarge, color = color, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
@@ -145,7 +157,7 @@ fun LiveHub(
             scrollToTopRequests = scrollToTopRequests,
             onChannelClick = onChannelClick,
             onVodClick = onVodClick,
-            segments = { LiveSegmentedControl(segment, select, Modifier.padding(bottom = NuvioTokens.Space.s8)) },
+            segments = { LiveSegmentedControl(segment, select, Modifier.padding(top = 6.dp, bottom = NuvioTokens.Space.s8)) },
         )
         LiveSegment.Guide -> LiveGuideScreen(segment, select, onChannelClick, modifier)
         LiveSegment.Sports -> if (sportsActions != null) LiveSportsScreen(segment, select, sportsActions, modifier)
@@ -154,8 +166,8 @@ fun LiveHub(
 
 // ------------------------------------------------------------------------------------------ Guide
 
-private val GUIDE_CHANNEL_WIDTH = 96.dp
-private val GUIDE_ROW_HEIGHT = 72.dp
+private val GUIDE_CHANNEL_WIDTH = 104.dp
+private val GUIDE_ROW_HEIGHT = 76.dp
 private const val GUIDE_DP_PER_MINUTE = 4f
 private const val GUIDE_WINDOW_HOURS = 6
 private const val HALF_HOUR_MS = 30 * 60_000L
@@ -226,17 +238,28 @@ private fun LiveGuideScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Uni
         (if (q.isEmpty()) built else built.filter { row -> row.channel.name.lowercase().contains(q) || row.programs.any { it.title.lowercase().contains(q) } }).take(200)
     }
 
-    Column(modifier.fillMaxSize().background(tokens.colors.background).statusBarsPadding()) {
-        NuvioScreenHeader(title = "Live", includeStatusBarPadding = false, modifier = Modifier.padding(horizontal = NuvioTokens.Space.s8))
-        LiveSegmentedControl(segment, onSelect, Modifier.padding(horizontal = NuvioTokens.Space.s16))
+    Column(modifier.fillMaxSize().background(tokens.colors.background).statusBarsPadding().padding(top = com.nuvio.app.core.ui.nuvioPlatformExtraTopPadding)) {
+        NuvioScreenHeader(
+            title = stringResource(Res.string.live_tv_title),
+            includeStatusBarPadding = false,
+            modifier = Modifier.padding(horizontal = NuvioTokens.Space.s16),
+            actions = {
+                com.nuvio.app.core.ui.NuvioIconActionButton(
+                    icon = androidx.compose.material.icons.Icons.Rounded.Refresh,
+                    contentDescription = "Refresh guide",
+                    onClick = { LiveTvRepository.reloadEpg() },
+                )
+            },
+        )
+        LiveSegmentedControl(segment, onSelect, Modifier.padding(horizontal = NuvioTokens.Space.s16).padding(top = 6.dp, bottom = NuvioTokens.Space.s8))
         Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = NuvioTokens.Space.s16, vertical = NuvioTokens.Space.s8),
             horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
         ) {
-            Chip("My Guide", selected = mineOnly, onClick = { mineOnly = true })
-            Chip("All Channels", selected = !mineOnly, onClick = { mineOnly = false })
-            if (!needsSetup) Chip("Categories", selected = false, onClick = { showCategories = true })
-            if (!needsSetup) Chip(if (myGuide.isEmpty()) "+ Add Channels" else "+ Added (${myGuide.size})", selected = false, onClick = { showPicker = true })
+            PillChip("My Guide", selected = mineOnly, onClick = { mineOnly = true })
+            PillChip("All Channels", selected = !mineOnly, onClick = { mineOnly = false })
+            if (!needsSetup) PillChip("Categories", selected = false, onClick = { showCategories = true })
+            if (!needsSetup) PillChip(if (myGuide.isEmpty()) "+ Add Channels" else "+ Added (${myGuide.size})", selected = false, onClick = { showPicker = true })
         }
         if (showCategories) {
             com.nuvio.app.features.livetv.LiveTvGuideCategoriesDialog(matches = guideMatches, onDismiss = { showCategories = false })
@@ -287,18 +310,40 @@ private fun LiveGuideScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Uni
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = tokens.colors.textMuted, modifier = Modifier.padding(NuvioTokens.Space.s16))
             }
         } else {
-            Row(Modifier.fillMaxWidth().height(32.dp)) {
-                Text("CH", style = MaterialTheme.typography.labelLarge, color = tokens.colors.textMuted, textAlign = TextAlign.Center, modifier = Modifier.width(GUIDE_CHANNEL_WIDTH).padding(top = 6.dp))
+            Row(Modifier.fillMaxWidth().height(42.dp)) {
+                Box(Modifier.width(GUIDE_CHANNEL_WIDTH).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+                    Text(
+                        "TODAY",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = tokens.colors.textMuted,
+                        modifier = Modifier.padding(start = NuvioTokens.Space.s16, bottom = 14.dp),
+                    )
+                }
                 Box(Modifier.weight(1f).fillMaxHeight().horizontalScroll(shared)) {
-                    Row(Modifier.width(timelineWidth).fillMaxHeight()) {
-                        repeat(GUIDE_WINDOW_HOURS * 2) { slot ->
-                            Text(
-                                clockText(windowStart + slot * HALF_HOUR_MS, use24h),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = tokens.colors.textMuted,
-                                modifier = Modifier.width((30 * GUIDE_DP_PER_MINUTE).dp).padding(top = 6.dp, start = 4.dp),
-                            )
+                    Box(Modifier.width(timelineWidth).fillMaxHeight()) {
+                        Row(Modifier.fillMaxSize()) {
+                            repeat(GUIDE_WINDOW_HOURS * 2) { slot ->
+                                Text(
+                                    clockText(windowStart + slot * HALF_HOUR_MS, use24h),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (slot == 0) FontWeight.SemiBold else FontWeight.Medium,
+                                    color = if (slot == 0) tokens.colors.textPrimary else tokens.colors.textMuted,
+                                    modifier = Modifier.width((30 * GUIDE_DP_PER_MINUTE).dp).padding(top = 2.dp, start = 6.dp),
+                                )
+                            }
                         }
+                        // "Now" marker riding on the time ruler, above the red line that runs down the rows.
+                        val nowX = ((now - windowStart) / 60_000f * GUIDE_DP_PER_MINUTE).dp
+                        Text(
+                            "NOW",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                            modifier = Modifier.align(Alignment.BottomStart).offset(x = nowX - 16.dp)
+                                .clip(RoundedCornerShape(50)).background(com.nuvio.app.features.sports.ui.SportsLiveRed)
+                                .padding(horizontal = 6.dp, vertical = 1.dp),
+                        )
                     }
                 }
             }
@@ -322,7 +367,7 @@ private fun LiveGuideScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Uni
                                     GuideProgram(program, windowStart, windowEnd, now, use24h) { onChannelClick(row.channel) }
                                 }
                                 val nowX = ((now - windowStart) / 60_000f * GUIDE_DP_PER_MINUTE).dp
-                                Box(Modifier.offset(x = nowX).width(2.dp).fillMaxHeight().background(com.nuvio.app.features.sports.ui.SportsLiveRed))
+                                Box(Modifier.offset(x = nowX - 1.dp).width(2.dp).fillMaxHeight().background(com.nuvio.app.features.sports.ui.SportsLiveRed.copy(alpha = 0.9f)))
                             }
                         }
                     }
@@ -336,8 +381,8 @@ private fun LiveGuideScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Uni
 private fun GuideSearchField(query: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     val tokens = MaterialTheme.nuvio
     Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(NuvioTokens.Radius.lg)).background(tokens.colors.surface)
-            .padding(horizontal = NuvioTokens.Space.s12, vertical = NuvioTokens.Space.s10),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(tokens.colors.textPrimary.copy(alpha = 0.08f))
+            .padding(horizontal = NuvioTokens.Space.s16, vertical = NuvioTokens.Space.s12),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
     ) {
@@ -360,18 +405,29 @@ private fun GuideSearchField(query: String, onChange: (String) -> Unit, modifier
 @Composable
 private fun GuideChannelCell(channel: LiveTvChannel, inGuide: Boolean, modifier: Modifier, onLongClick: () -> Unit, onClick: () -> Unit) {
     val tokens = MaterialTheme.nuvio
-    Box(modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            if (channel.logoUrl != null) {
-                AsyncImage(model = channel.logoUrl, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(width = 56.dp, height = 30.dp))
+    Column(
+        modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(start = NuvioTokens.Space.s12, end = 6.dp, top = 5.dp, bottom = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        com.nuvio.app.features.livetv.LiveTvLogoPlate(channel, Modifier.fillMaxWidth().weight(1f), radius = 10.dp, logoPadding = 7.dp) {
+            if (inGuide) {
+                Icon(
+                    Icons.Rounded.Star,
+                    contentDescription = "In My Guide",
+                    tint = tokens.colors.warning,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(3.dp).size(10.dp),
+                )
             }
-            Text(channel.name, style = MaterialTheme.typography.labelSmall, color = tokens.colors.textPrimary, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        if (inGuide) Icon(Icons.Rounded.Star, contentDescription = "In My Guide", tint = tokens.colors.accent, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(12.dp))
+        Text(
+            com.nuvio.app.features.livetv.liveTvDisplayName(channel.name),
+            style = MaterialTheme.typography.labelSmall,
+            color = tokens.colors.textMuted,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -383,23 +439,44 @@ private fun GuideProgram(program: LiveTvEpgProgram, windowStart: Long, windowEnd
     val x: Dp = ((start - windowStart) / 60_000f * GUIDE_DP_PER_MINUTE).dp
     val w: Dp = ((end - start) / 60_000f * GUIDE_DP_PER_MINUTE).dp
     val airing = program.isAiringAt(now)
-    val shape = RoundedCornerShape(NuvioTokens.Radius.md)
+    val ended = program.endMillis <= now
+    val shape = RoundedCornerShape(10.dp)
+    val (title, flag) = com.nuvio.app.features.livetv.liveTvProgramTitle(program.title)
+    val blockWidth = (w - 4.dp).coerceAtLeast(6.dp)
     Box(
-        Modifier.offset(x = x).width((w - 3.dp).coerceAtLeast(10.dp)).fillMaxHeight().padding(vertical = 3.dp)
+        Modifier.offset(x = x).width(blockWidth).fillMaxHeight().padding(vertical = 3.dp)
             .clip(shape)
-            .background(if (airing) tokens.colors.surfaceElevated else tokens.colors.surface)
-            .then(if (airing) Modifier.border(1.dp, tokens.colors.accent.copy(alpha = 0.6f), shape) else Modifier)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .background(if (airing) tokens.colors.textPrimary.copy(alpha = 0.14f) else tokens.colors.textPrimary.copy(alpha = 0.06f))
+            .clickable(onClick = onClick),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(program.title, style = MaterialTheme.typography.labelLarge, color = tokens.colors.textPrimary, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(
-                "${clockText(program.startMillis, use24h)} – ${clockText(program.endMillis, use24h)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (airing) tokens.colors.accent else tokens.colors.textMuted,
-                maxLines = 1,
-            )
+        // How far through the programme we are, as a soft wash behind the text.
+        if (airing) {
+            Box(Modifier.fillMaxHeight().fillMaxWidth(program.progressAt(now)).background(tokens.colors.textPrimary.copy(alpha = 0.08f)))
+        }
+        // Programmes too short to read get just their block.
+        if (blockWidth >= 44.dp) {
+            Column(
+                Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (ended) tokens.colors.textMuted else tokens.colors.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = if (blockWidth < 96.dp) 1 else 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    flag?.let { com.nuvio.app.features.livetv.LiveTvFlag(it, solid = it == "LIVE") }
+                    Text(
+                        if (airing) com.nuvio.app.features.livetv.liveTvMinutesLeft(program, now) else clockText(program.startMillis, use24h),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (airing) tokens.colors.textSecondary else tokens.colors.textMuted,
+                        maxLines = 1,
+                    )
+                }
+            }
         }
     }
 }
@@ -437,14 +514,14 @@ private fun LiveSportsScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Un
     ) {
         item {
             Column(Modifier.statusBarsPadding()) {
-                NuvioScreenHeader(title = "Live", includeStatusBarPadding = false, modifier = Modifier.padding(horizontal = NuvioTokens.Space.s8))
-                LiveSegmentedControl(segment, onSelect, Modifier.padding(horizontal = NuvioTokens.Space.s16))
+                NuvioScreenHeader(title = stringResource(Res.string.live_tv_title), includeStatusBarPadding = false, modifier = Modifier.padding(horizontal = NuvioTokens.Space.s16))
+                LiveSegmentedControl(segment, onSelect, Modifier.padding(horizontal = NuvioTokens.Space.s16).padding(top = 6.dp))
             }
         }
         item {
             Row(Modifier.padding(horizontal = NuvioTokens.Space.s16), horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8)) {
-                Chip("For You", selected = forYou, onClick = { forYou = true })
-                Chip("All Live", selected = !forYou, onClick = { forYou = false })
+                PillChip("For You", selected = forYou, onClick = { forYou = true })
+                PillChip("All Live", selected = !forYou, onClick = { forYou = false })
             }
         }
         item {

@@ -79,24 +79,24 @@ internal fun MyTeamsStrip(onChoose: () -> Unit, modifier: Modifier = Modifier) {
         }
         return
     }
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = NuvioTokens.Space.s16),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 "My Teams",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
                 color = tokens.colors.textPrimary,
                 modifier = Modifier.weight(1f),
             )
             Text(
                 "Edit",
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = tokens.colors.accent,
-                modifier = Modifier.clickable(onClick = onChoose).padding(vertical = 4.dp),
+                color = tokens.colors.textPrimary,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(tokens.colors.textPrimary.copy(alpha = 0.12f))
+                    .clickable(onClick = onChoose).padding(horizontal = 14.dp, vertical = 6.dp),
             )
         }
         LazyRow(

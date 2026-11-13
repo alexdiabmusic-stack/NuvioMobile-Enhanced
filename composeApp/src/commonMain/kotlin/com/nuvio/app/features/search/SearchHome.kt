@@ -1,6 +1,10 @@
 package com.nuvio.app.features.search
 
 import androidx.compose.foundation.background
+import com.nuvio.app.features.home.components.HomeTop10Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,7 +58,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.nuvio.app.core.ui.Chip
 import com.nuvio.app.core.ui.NuvioShelfSection
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
@@ -103,76 +106,74 @@ internal fun LazyListScope.searchHomeSections(
     onPosterClick: ((MetaPreview) -> Unit)?,
     onPosterLongClick: ((MetaPreview) -> Unit)?,
 ) {
+    // Every section uses Home's shelf: the same heading, spacing and edge-to-edge rows.
     item(key = "sh-popular") {
-        Column(Modifier.padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionTitle("Popular searches")
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(SEARCH_POPULAR, key = { it.key }) { spec ->
-                    PopularChip(spec.title) { onOpen(SearchPage.Grid(spec.title, listOf("" to spec))) }
-                }
-            }
+        NuvioShelfSection(
+            title = "Popular searches",
+            entries = SEARCH_POPULAR,
+            modifier = Modifier.padding(bottom = SECTION_GAP),
+            headerHorizontalPadding = 16.dp,
+            rowContentPadding = PaddingValues(horizontal = 16.dp),
+            itemSpacing = 8.dp,
+            key = { it.key },
+        ) { spec ->
+            PopularChip(spec.title) { onOpen(SearchPage.Grid(spec.title, listOf("" to spec))) }
         }
     }
     item(key = "sh-collections") {
-        Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Explore Collections", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.nuvio.colors.textPrimary)
-            SearchCollection.entries.chunked(2).forEach { pair ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    pair.forEach { collection ->
-                        CollectionCard(collection, Modifier.weight(1f)) {
-                            onOpen(collection.defId?.let { SearchPage.Collection(it) } ?: SearchPage.Franchises)
-                        }
-                    }
-                }
+        NuvioShelfSection(
+            title = "Explore Collections",
+            entries = SearchCollection.entries,
+            modifier = Modifier.padding(bottom = SECTION_GAP),
+            headerHorizontalPadding = 16.dp,
+            rowContentPadding = PaddingValues(horizontal = 16.dp),
+            key = { it.name },
+        ) { collection ->
+            CollectionCard(collection) {
+                onOpen(collection.defId?.let { SearchPage.Collection(it) } ?: SearchPage.Franchises)
             }
         }
     }
     item(key = "sh-browse") {
-        Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Browse All", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.nuvio.colors.textPrimary)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BrowseTile(Icons.Rounded.Theaters, "Genres", Modifier.weight(1f)) { onOpen(SearchPage.Genres) }
-                BrowseTile(Icons.Rounded.Groups, "Actors", Modifier.weight(1f)) { onOpen(SearchPage.People(directors = false)) }
-                BrowseTile(Icons.Rounded.Videocam, "Directors", Modifier.weight(1f)) { onOpen(SearchPage.People(directors = true)) }
-                BrowseTile(Icons.Rounded.CalendarMonth, "Decades", Modifier.weight(1f)) { onOpen(SearchPage.Decades) }
-                if (showLiveTv) BrowseTile(Icons.Rounded.Sensors, "Live TV", Modifier.weight(1f), onClick = onOpenLiveTv)
-            }
+        val tiles = buildList {
+            add(BrowseEntry(Icons.Rounded.Theaters, "Genres", Color(0xFFE5484D)) { onOpen(SearchPage.Genres) })
+            add(BrowseEntry(Icons.Rounded.Groups, "Actors", Color(0xFF3E7BFA)) { onOpen(SearchPage.People(directors = false)) })
+            add(BrowseEntry(Icons.Rounded.Videocam, "Directors", Color(0xFF8E4EC6)) { onOpen(SearchPage.People(directors = true)) })
+            add(BrowseEntry(Icons.Rounded.CalendarMonth, "Decades", Color(0xFFE38A1C)) { onOpen(SearchPage.Decades) })
+            if (showLiveTv) add(BrowseEntry(Icons.Rounded.Sensors, "Live TV", Color(0xFF2EA66B), onOpenLiveTv))
         }
+        NuvioShelfSection(
+            title = "Browse All",
+            entries = tiles,
+            modifier = Modifier.padding(bottom = SECTION_GAP),
+            headerHorizontalPadding = 16.dp,
+            rowContentPadding = PaddingValues(horizontal = 16.dp),
+            key = { it.label },
+        ) { BrowseTile(it) }
     }
     item(key = "sh-trending") {
         val trending by produceState<List<MetaPreview>>(emptyList()) { value = SearchBrowseData.trending() }
         if (trending.isEmpty()) {
             HomeSkeletonRow(modifier = Modifier.padding(horizontal = 16.dp))
         } else {
-            NuvioShelfSection(
+            // Ranked like Home's Top 10 rows.
+            HomeTop10Row(
+                items = trending.take(10),
+                sectionPadding = 16.dp,
                 title = "Trending This Week",
-                entries = trending,
-                modifier = Modifier.padding(bottom = 20.dp),
-                headerHorizontalPadding = 16.dp,
-                rowContentPadding = PaddingValues(horizontal = 16.dp),
-                key = { it.stableKey() },
-            ) { pick ->
-                HomePosterCard(
-                    item = pick,
-                    isWatched = WatchingState.isPosterWatched(watchedKeys, pick, fullyWatchedSeriesKeys),
-                    onClick = onPosterClick?.let { { it(pick) } },
-                    onLongClick = onPosterLongClick?.let { { it(pick) } },
-                )
-            }
+                modifier = Modifier.padding(bottom = SECTION_GAP),
+                onPosterClick = onPosterClick,
+                onPosterLongClick = onPosterLongClick,
+            )
         }
     }
 }
 
+private val SECTION_GAP = 18.dp
+
 @Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.nuvio.colors.textPrimary,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-}
+internal fun SearchPill(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) =
+    com.nuvio.app.core.ui.PillChip(label, selected, onClick, modifier)
 
 @Composable
 private fun PopularChip(label: String, onClick: () -> Unit) {
@@ -180,37 +181,34 @@ private fun PopularChip(label: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(tokens.colors.surface)
+            .background(tokens.colors.textPrimary.copy(alpha = 0.08f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp),
+            .padding(start = 12.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(Icons.Rounded.Search, contentDescription = null, tint = tokens.colors.textMuted, modifier = Modifier.size(16.dp))
         Text(label, style = MaterialTheme.typography.labelLarge, color = tokens.colors.textPrimary, maxLines = 1)
     }
 }
 
-/** A collection card: the title over art from the collection's own top title, with no description under it. */
+/** A collection card, sized and shaded like Home's wide cards, with the title over the collection's key art. */
 @Composable
-private fun CollectionCard(collection: SearchCollection, modifier: Modifier, onClick: () -> Unit) {
+private fun CollectionCard(collection: SearchCollection, onClick: () -> Unit) {
     val tokens = MaterialTheme.nuvio
     val cover by produceState<String?>(null, collection) {
         value = SearchBrowseData.backdrop(collection.coverTitle, collection.coverYear, collection.coverIsSeries)
     }
     Box(
-        modifier = modifier
-            .height(104.dp)
-            .clip(RoundedCornerShape(16.dp))
+        modifier = Modifier
+            .width(250.dp)
+            .aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(12.dp))
             .background(tokens.colors.surface)
             .clickable(onClick = onClick),
     ) {
         cover?.let { AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.78f))),
-            ),
-        )
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f))))
         Text(
             collection.title,
             style = MaterialTheme.typography.titleMedium,
@@ -218,25 +216,36 @@ private fun CollectionCard(collection: SearchCollection, modifier: Modifier, onC
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
         )
     }
 }
 
+private class BrowseEntry(val icon: ImageVector, val label: String, val tint: Color, val onClick: () -> Unit)
+
+/** A Browse All tile: a soft colour wash with its icon at the top and its name at the bottom. */
 @Composable
-private fun BrowseTile(icon: ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+private fun BrowseTile(entry: BrowseEntry) {
     val tokens = MaterialTheme.nuvio
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+    Box(
+        modifier = Modifier
+            .width(132.dp)
+            .height(84.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(tokens.colors.surface)
-            .clickable(onClick = onClick)
-            .padding(vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .background(Brush.linearGradient(listOf(entry.tint.copy(alpha = 0.55f), entry.tint.copy(alpha = 0.12f))))
+            .clickable(onClick = entry.onClick)
+            .padding(12.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = tokens.colors.textPrimary, modifier = Modifier.size(26.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = tokens.colors.textPrimary, maxLines = 1)
+        Icon(entry.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+        Text(
+            entry.label,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+            maxLines = 1,
+            modifier = Modifier.align(Alignment.BottomStart),
+        )
     }
 }
 
@@ -317,7 +326,7 @@ private fun GridPageContent(
             if (page.options.size > 1) {
                 item(key = "chips") {
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        page.options.forEachIndexed { index, (label, _) -> Chip(label, selected = selected == index, onClick = { selected = index }) }
+                        page.options.forEachIndexed { index, (label, _) -> SearchPill(label, selected = selected == index, onClick = { selected = index }) }
                     }
                 }
             }
@@ -415,7 +424,7 @@ private fun FranchiseListContent(onOpen: (SearchPage) -> Unit) {
                 value = SearchBrowseData.backdrop(franchise.heroTitle, franchise.heroYear, franchise.heroIsSeries)
             }
             Box(
-                Modifier.fillMaxWidth().height(148.dp).clip(RoundedCornerShape(16.dp)).background(tokens.colors.surface)
+                Modifier.fillMaxWidth().height(148.dp).clip(RoundedCornerShape(12.dp)).background(tokens.colors.surface)
                     .clickable { onOpen(SearchPage.Collection(franchise.id)) },
             ) {
                 cover?.let { AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
@@ -476,8 +485,8 @@ private fun CollectionPageContent(
             if (def.chronological != null) {
                 item(key = "order") {
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip("Release order", selected = !chronological, onClick = { chronological = false })
-                        Chip("Chronological order", selected = chronological, onClick = { chronological = true })
+                        SearchPill("Release order", selected = !chronological, onClick = { chronological = false })
+                        SearchPill("Chronological order", selected = chronological, onClick = { chronological = true })
                     }
                 }
             }
@@ -549,7 +558,7 @@ private fun PosterSection(
     onPosterLongClick: ((MetaPreview) -> Unit)?,
 ) {
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.nuvio.colors.textPrimary)
+        Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.nuvio.colors.textPrimary)
         items.chunked(columns).forEach { row ->
             PosterGridRow(
                 items = row,

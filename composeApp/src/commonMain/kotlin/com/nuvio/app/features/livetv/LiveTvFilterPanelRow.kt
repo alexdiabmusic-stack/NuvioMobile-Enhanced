@@ -112,32 +112,28 @@ internal fun LiveTvPanelFilterChip(
     onClick: () -> Unit,
     count: Int? = null,
 ) {
+    // The same white-when-selected pill as the rest of the app's filters.
     val tokens = MaterialTheme.nuvio
+    val background by androidx.compose.animation.animateColorAsState(
+        if (selected) tokens.colors.textPrimary else tokens.colors.textPrimary.copy(alpha = 0.12f),
+    )
+    val content by androidx.compose.animation.animateColorAsState(
+        if (selected) tokens.colors.background else tokens.colors.textPrimary,
+    )
     Row(
         modifier = Modifier
-            .clip(tokens.shapes.chip)
-            .background(if (selected) tokens.colors.overlaySelected else tokens.colors.surface)
-            .then(
-                if (selected) {
-                    Modifier
-                } else {
-                    Modifier.border(
-                        width = NuvioTokens.Border.thin,
-                        color = tokens.colors.borderSubtle,
-                        shape = tokens.shapes.chip,
-                    )
-                },
-            )
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+            .background(background)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (selected) tokens.colors.accent else tokens.colors.textSecondary,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = content,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -145,7 +141,7 @@ internal fun LiveTvPanelFilterChip(
             Text(
                 text = count.toString(),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (selected) tokens.colors.accent.copy(alpha = 0.75f) else tokens.colors.textMuted,
+                color = content.copy(alpha = 0.55f),
                 maxLines = 1,
             )
         }

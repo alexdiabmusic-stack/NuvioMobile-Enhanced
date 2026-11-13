@@ -61,7 +61,9 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
         val fingerprint: Long,
         val names: List<Pair<LiveChannel, String>>,
         val tokenIndex: Map<String, List<Int>>,
-        val discNames: Set<String>
+        val discNames: Set<String>,
+        /** Channel key -> its name through norm, for checking what else a channel's name says. */
+        val nameByKey: Map<String, String>
     )
     @Volatile private var nameData: NameData? = null
 
@@ -84,7 +86,8 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
             nn.split(' ').filter { it.isNotEmpty() }.distinct().forEach { tok -> tokenIndex.getOrPut(tok) { ArrayList() }.add(i) }
         }
         val discNames = names.filter { (_, nn) -> hasWord(nn, "disc golf") }.mapTo(HashSet()) { it.first.key }
-        return NameData(fp, names, tokenIndex, discNames).also { nameData = it }
+        val nameByKey = names.associate { (ch, nn) -> ch.key to nn }
+        return NameData(fp, names, tokenIndex, discNames, nameByKey).also { nameData = it }
     }
 
     fun match(input: Input): Result {
@@ -95,6 +98,7 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
         val names = nd0.names
         val tokenIndex = nd0.tokenIndex
         val discNames = nd0.discNames
+        val nameByKey = nd0.nameByKey
         val discIds = input.events.filter { isDiscGolf(it) }.mapTo(HashSet()) { it.id }
         val found = HashMap<String, HashMap<String, Found>>()
         fun add(eventId: String, key: String, score: Int, how: String, program: EpgProgram?) {
@@ -148,6 +152,26 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
                 SportsCatalog.fightSides(ev.title) != null
         }
         val terms = (teamEvents + guideFights).associate { ev -> ev.id to termsFor(ev) }
+        /**
+         * The channel's own name announces a different game ("SN+ 20: UFC Fight Night Moicano vs. Nolan",
+         * "TSN+ 9: LaLiga: Real Betis vs. Malaga"): event channels whose guide still lists an earlier booking.
+         */
+        fun namesOtherGame(evId: String, key: String): Boolean {
+            val nn = nameByKey[key] ?: return false
+            return terms[evId]?.channelNamesOther(nn, byKey[key]?.name.orEmpty()) == true
+        }
+        // Every team playing today, by league: a show naming one of ours and another of the league's teams
+        // ("NBA: New York Knicks - Cleveland Cavaliers" for Knicks at Pacers) is a different game.
+        val leagueTeams: Map<String, List<Pair<String, List<String>>>> = teamEvents.groupBy { it.leagueId }.mapValues { (lid, evs) ->
+            val league = SportsCatalog.league(lid)
+            if (league == null || league.schoolNames) emptyList()
+            else evs.flatMap { e -> e.sides.map { side -> e.id to SportsCatalog.teamNames(side.team, league).first } }
+        }
+        fun namesAnotherTeam(ev: SportsEvent, text: String): Boolean =
+            leagueTeams[ev.leagueId].orEmpty().any { (id, names) ->
+                id != ev.id && names.any { it.length >= 4 && hasWord(text, it) } &&
+                    ev.sides.none { side -> SportsCatalog.league(ev.leagueId)?.let { l -> SportsCatalog.teamNames(side.team, l).first }.orEmpty().any { n -> names.contains(n) } }
+            }
 
         // Tournaments and race weekends running at the same time (several tennis events, two golf
         // tours): a channel or show that just says "Tennis" or "Golf" can't tell them apart.
@@ -213,6 +237,7 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
             for (ev in slot) {
                 val t = terms[ev.id] ?: continue
                 for ((key, p, texts) in prepared) {
+                    if (namesOtherGame(ev.id, key)) continue
                     val (nt, nd) = texts
                     // Disc golf shows never count for regular golf.
                     if (ev.id !in discIds && (hasWord(nt, "disc golf") || hasWord(nd, "disc golf"))) continue
@@ -232,6 +257,7 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
                         }
                     }
                     if (score <= 0) continue
+                    if (score < 90 && namesAnotherTeam(ev, nt)) continue
                     // Pre-game shows often start an hour early on the same channel; much earlier or later is less likely the game.
                     if (p.startMs < ev.startMs - 80 * MINUTE || p.startMs > ev.startMs + 25 * MINUTE) score -= 10
                     add(ev.id, key, score, "Guide: ${p.title}", p)
@@ -263,6 +289,51 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
             }
         }
 
+        // ---- 2b. A team's own channel: "NBA: Milwaukee Bucks HD", "NFL TEAMS : Bears HD", "Boston Bruins HD" in
+        // an "NHL TEAMS" group. Playlists carry one for every team in the big leagues and they show that team's
+        // games, but they name one team, never the match-up, so step 2 can't find them. When the guide has a
+        // listing for the channel at game time it decides (the game itself was found in step 1; "No Game Today"
+        // means it isn't on there).
+        var byTeam = 0
+        val teamHits = ArrayList<Triple<SportsEvent, LiveChannel, String>>()
+        for (ev in teamEvents) {
+            if (ev.state == GameState.POST && ev.startMs < input.now - 5 * HOUR) continue
+            val league = SportsCatalog.league(ev.leagueId) ?: continue
+            // College teams go by their school, which names far too many channels.
+            if (league.schoolNames) continue
+            val t = terms[ev.id] ?: continue
+            if (t.leagueWords.isEmpty()) continue
+            for (side in ev.sides) {
+                val strong = SportsCatalog.teamNames(side.team, league).first.toSet()
+                if (strong.isEmpty()) continue
+                val anchors = strong.mapNotNull { it.substringBefore(' ').takeIf { w -> w.isNotEmpty() } }.toSet()
+                forNamed(tokenIndex, anchors, names) { ch, nn ->
+                    val core = teamChannelCore(ch.name, t.leagueWords)
+                    if (core !in strong) return@forNamed
+                    // The league has to be named, by the channel or its group, so "Cardinals" is the right sport's.
+                    val group = norm(ch.group)
+                    if (t.leagueWords.none { hasWord(nn, it) || hasWord(group, it) }) return@forNamed
+                    teamHits += Triple(ev, ch, side.team.name)
+                }
+            }
+        }
+        if (teamHits.isNotEmpty()) {
+            teamHits.groupBy { it.first.startMs / (30 * MINUTE) }.forEach { (_, hits) ->
+                val at = hits.minOf { it.first.startMs } + 20 * MINUTE
+                val keys = hits.map { it.second.key }.distinct()
+                val onAt: Map<String, EpgProgram?> = runCatching {
+                    db.range(at - input.shiftMs, at - input.shiftMs + 1, light = true, channels = keys)
+                        .mapValues { (_, l) -> l.firstOrNull() }
+                }.getOrDefault(emptyMap())
+                for ((ev, ch, teamName) in hits) {
+                    // Listed, and not as this game: the team's channel is showing something else.
+                    if (onAt[ch.key] != null && found[ev.id]?.get(ch.key) == null) continue
+                    add(ev.id, ch.key, 72, "$teamName channel", null)
+                    byTeam++
+                }
+            }
+        }
+
         val tNames = LiveTvClock.nowMs()
 
         // ---- 3. The network ESPN lists, with a sports show on at the time.
@@ -276,7 +347,8 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
             // real channel name; requiring every distinctive word in it (dropping "sports",
             // "network" and the like) does, and needs no per-network brand list to keep working
             // through a rebrand.
-            val words = if (mapped == null) n.split(' ').filter { it.length >= 3 && it !in GENERIC_NETWORK_WORDS } else emptyList()
+            // Numbers stay: "TSN 3" is not every TSN channel, "Utah 16" is not every channel with "Utah" in it.
+            val words = if (mapped == null) n.split(' ').filter { (it.length >= 3 || it.all { c -> c.isDigit() }) && it !in GENERIC_NETWORK_WORDS } else emptyList()
             val pats = mapped ?: (words.ifEmpty { listOf(n).filter { it.length >= 3 } })
             if (pats.isEmpty()) return@forEach
             val not = NETWORK_NOT[n].orEmpty()
@@ -311,6 +383,7 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
                     if (ev.id in noStart) continue
                     val national = n in NATIONAL
                     candidates[n].orEmpty()
+                        .filterNot { namesOtherGame(ev.id, it.key) }
                         .map { ch ->
                             val p = onNow[ch.key]
                             val showText = p?.let { norm(it.title + " " + (it.episode ?: "")) }
@@ -378,7 +451,7 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
         }
         val tEnd = LiveTvClock.nowMs()
         val summary = "Sports: ${wanted.size} games and events in the next day or so · channels found for ${out.size} " +
-            "(guide $byGuide, channel names $byName, networks $byNetwork) · ${input.channels.size} channels searched in " +
+            "(guide $byGuide, channel names $byName, team channels $byTeam, networks $byNetwork) · ${input.channels.size} channels searched in " +
             "${(tEnd - tStart) / 1000} s (guide ${(tGuide - tStart) / 1000}, names ${(tNames - tGuide) / 1000}, networks ${(tEnd - tNames) / 1000})" +
             (if (multi.isNotEmpty()) " · multi-day: $multi" else "")
         return Result(out, summary)
@@ -550,7 +623,9 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
                     aT && bT -> 100
                     (aT && bW) || (bT && aW) -> 90
                     (aT || aD) && (bT || bD) -> 82
-                    (aT || bT) && any(nt, leagueWords) -> 58
+                    // One of the teams and the league, but not a show naming another match-up
+                    // ("NBA G League: Greensboro Swarm at Raptors 905" is not the Raptors' game).
+                    (aT || bT) && any(nt, leagueWords) && !MATCHUP.containsMatchIn(nt) -> 58
                     else -> 0
                 }
             }
@@ -571,6 +646,21 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
                 listOfNotNull(abbrA, abbrB).any { it.length >= 2 && hasWord(text, it) }
             if (us) return false
             return MATCHUP.containsMatchIn(text)
+        }
+
+        /**
+         * A channel's own name announces another game or event: a match-up that isn't both of ours
+         * ("SN+ 23: Toronto @ Vancouver" for Minnesota at Toronto), or a numbered event channel about
+         * something else entirely ("TSN+ 2: ATP 500 Tennis: Vienna Semifinals").
+         */
+        fun channelNamesOther(nn: String, rawName: String): Boolean {
+            if (a.isEmpty() || b.isEmpty()) return false
+            val ours = any(nn, a) || any(nn, aWeak) || any(nn, b) || any(nn, bWeak) ||
+                listOfNotNull(abbrA, abbrB).any { it.length >= 2 && hasWord(nn, it) }
+            val both = (any(nn, a) || (abbrA?.let { hasWord(nn, it) } ?: false)) && (any(nn, b) || (abbrB?.let { hasWord(nn, it) } ?: false))
+            if (MATCHUP.containsMatchIn(nn)) return !both
+            val booked = EVENT_CHANNEL.find(rawName)?.groupValues?.get(1)?.let { norm(it) } ?: return false
+            return booked.trim().count { it == ' ' } >= 2 && !ours && leagueWords.none { hasWord(booked, it) }
         }
 
         /** The show's title or description names the competition itself ("Formula 1", "Grand Prix"). */
@@ -614,6 +704,16 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
             val n = norm(w).trim()
             start == n || start.startsWith("$n ") || start.startsWith("friday night $n") || start.startsWith("monday night $n")
         }
+    }
+
+    /**
+     * What a team channel's name says once the region ("US ★", "UK:"), the league ("NBA:", "NFL TEAMS :"),
+     * the quality and the like are taken off: "US ★ NBA: Milwaukee Bucks HD" -> "milwaukee bucks".
+     */
+    private fun teamChannelCore(name: String, leagueWords: List<String>): String {
+        var n = norm(name.replace(REGION_LEAD, " ").replace("+", " plus "))
+        for (w in leagueWords) if (w.isNotBlank()) n = n.replace(" $w ", " ")
+        return n.split(' ').filter { it.isNotEmpty() && it !in TEAM_CHANNEL_FILLER }.joinToString(" ")
     }
 
     /** A channel name without "US:" and quality words, for comparing with show titles. */
@@ -680,6 +780,19 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
         private const val HOUR = 60 * MINUTE
         /** How far ahead games are looked for in your channels (most guides cover 2–3 days). */
         const val AHEAD_MS = 56 * HOUR
+
+        /** A numbered event channel and what it is booked for: "TSN+ 2: ATP 500 Tennis: Vienna" -> "ATP 500 Tennis: Vienna". */
+        private val EVENT_CHANNEL = Regex("""\b\d{1,3}\s*:\s*(\S.*)$""")
+
+        /** A region code at the start of a channel name: "US ★ ", "UK: ", "CA | ", "FR ❖ ". */
+        private val REGION_LEAD = Regex("""^\s*[A-Za-z]{2,4}\s*[★❖|:•\-]+\s*""")
+
+        /** Words a team channel's name carries besides the team's ("NFL TEAMS : Bears HD", "Bruins Feed"). */
+        private val TEAM_CHANNEL_FILLER = setOf(
+            "teams", "team", "tv", "network", "feed", "official", "channel", "live", "home", "away",
+            "4k", "uhd", "2160", "2160p", "fhd", "1080", "1080p", "1080i", "hd", "720", "720p", "sd", "480", "576",
+            "hevc", "h265", "h264", "50fps", "60fps", "fps", "backup", "alt", "vip", "raw"
+        )
 
         private val NAME_PREFIX = Regex("""^\s*[A-Za-z]{2,3}\s*[:|\-]\s*""")
         private val TWENTY_FOUR_SEVEN = Regex("""(?i)\b24\s*[/\\|\-x]?\s*7\b""")
@@ -842,6 +955,27 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
             "seven" to listOf("channel 7", "seven network", "7mate"),
             "nine" to listOf("channel 9", "nine network", "9gem"),
             "optus sport" to listOf("optus sport"),
+            // ---- US regional networks ESPN lists by short code
+            "mnmt" to listOf("monumental"),
+            "monumental sports network" to listOf("monumental"),
+            "msgsn" to listOf("msg sportsnet", "msg"),
+            "msg sportsnet" to listOf("msg sportsnet", "msg"),
+            "msgb" to listOf("msg"),
+            "msg" to listOf("msg"),
+            "chsn" to listOf("chicago sports network", "chsn"),
+            "chicago sports network" to listOf("chicago sports network", "chsn"),
+            "nbc sports phil" to listOf("nbc sports philadelphia", "nbc sports philly", "nbcsp"),
+            "nbc sports philadelphia" to listOf("nbc sports philadelphia", "nbc sports philly", "nbcsp"),
+            "nbc sports ba" to listOf("nbc sports bay area", "nbcsba"),
+            "nbc sports bay area" to listOf("nbc sports bay area", "nbcsba"),
+            "nbc sports bos" to listOf("nbc sports boston"),
+            "nbc sports boston" to listOf("nbc sports boston"),
+            "yes" to listOf("yes network"),
+            "sny" to listOf("sny"),
+            "nesn" to listOf("nesn"),
+            "masn" to listOf("masn"),
+            "space city home network" to listOf("space city home network", "space city"),
+            "schn" to listOf("space city home network", "space city"),
             // ---- bein sports numbered variants (ESPN lists these for several international competitions)
             "bein sports 1" to listOf("bein sports 1", "bein 1"),
             "bein sports 2" to listOf("bein sports 2", "bein 2"),
@@ -909,8 +1043,21 @@ internal class SportsMatcher(private val db: GuideSearch = GuideSearch.Store) {
         )
         private val LANGUAGE_TAG = Regex("[\\[(]([A-Za-z]{2,3})[\\])]")
 
+        /** A country or language code leading a name or group: "FR ★ beIN Sport 1", group "SW ❖ SWEDEN 4K". */
+        private val LEAD_CODE = Regex("""^\s*([A-Za-z]{2,4})\s*[★❖|:•]""")
+
+        /** Lead codes that mean a language other than English (the code a channel list uses -> language). */
+        private val LEAD_LANGUAGE = mapOf(
+            "fr" to "fr", "caf" to "fr", "de" to "de", "it" to "it", "es" to "es", "lat" to "es", "mx" to "es",
+            "pt" to "pt", "br" to "pt", "nl" to "nl", "pl" to "pl", "tr" to "tr", "ar" to "ar", "ru" to "ru",
+            "sw" to "sv", "se" to "sv", "fi" to "fi", "no" to "no", "dk" to "da", "cz" to "cs", "gr" to "el",
+            "exyu" to "sr", "al" to "sq", "ua" to "ua", "ro" to "ro", "hu" to "hu", "bg" to "bg"
+        )
+
         /** The language a channel's name or group says it's in, if any. */
         private fun channelLanguage(ch: LiveChannel): String? {
+            listOf(ch.name, ch.group).firstNotNullOfOrNull { LEAD_CODE.find(it)?.groupValues?.get(1)?.lowercase()?.let { c -> LEAD_LANGUAGE[c] } }
+                ?.let { return it }
             val prefix = if (ch.name.contains(':') || ch.name.contains('|'))
                 norm(ch.name.substringBefore(':').substringBefore('|').take(16)) else " "
             val tags = norm(LANGUAGE_TAG.findAll(ch.name).joinToString(" ") { it.groupValues[1] })

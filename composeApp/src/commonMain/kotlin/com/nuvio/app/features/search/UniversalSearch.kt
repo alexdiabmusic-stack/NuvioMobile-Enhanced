@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.nuvio.app.core.network.NetworkStatusRepository
-import com.nuvio.app.core.ui.Chip
 import com.nuvio.app.core.ui.NativeNavigationTab
 import com.nuvio.app.core.ui.PlatformBackHandler
 import com.nuvio.app.core.ui.openNativeTab
@@ -122,6 +121,25 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import com.nuvio.app.navigation.LocalReserveProfileButton
+import kotlin.math.roundToInt
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 
 /** An actor, director or other person from TMDB, with what they're known for. */
 internal data class PersonHit(val id: Int, val name: String, val photo: String?, val subtitle: String?)
@@ -266,6 +284,7 @@ private fun UniversalSearchScreen(
     val use24h = use24h()
     var teamSheet by remember { mutableStateOf<TeamInfo?>(null) }
     var searchFocused by remember { mutableStateOf(false) }
+    val titleCollapse = remember { CollapsingTitleState() }
 
     LaunchedEffect(Unit) {
         AddonRepository.initialize()
@@ -399,17 +418,35 @@ private fun UniversalSearchScreen(
                 onPosterLongClick = onPosterLongClick,
                 onPersonClick = onPersonClick,
             )
-        } else Column(Modifier.fillMaxSize()) {
+        } else Column(Modifier.fillMaxSize().nestedScroll(titleCollapse.connection)) {
             Box(Modifier.fillMaxWidth().appBackgroundCover(MaterialTheme.colorScheme.background)) {
                 Column(Modifier.fillMaxWidth()) {
-                    NuvioScreenHeader(title = "Search", modifier = Modifier.padding(horizontal = 16.dp))
+                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                    // The large title folds away as the page scrolls, like the iOS large title, leaving the search box.
+                    NuvioScreenHeader(
+                        title = "Search",
+                        topPadding = 0.dp,
+                        modifier = Modifier
+                            .clipToBounds()
+                            .layout { measurable, constraints ->
+                                val placeable = measurable.measure(constraints)
+                                val shift = titleCollapse.offsetPx.roundToInt().coerceAtMost(placeable.height)
+                                layout(placeable.width, placeable.height - shift) { placeable.place(0, -shift) }
+                            }
+                            .onSizeChanged { titleCollapse.maxPx = it.height.toFloat() }
+                            .graphicsLayer { alpha = (1f - titleCollapse.fraction * 1.6f).coerceIn(0f, 1f) }
+                            .padding(horizontal = 16.dp),
+                    )
                     Spacer(Modifier.height(6.dp))
-                    Box(Modifier.padding(horizontal = 16.dp)) {
+                    // Once the title has gone, the box moves up beside the profile button, so it makes room for it.
+                    val profileRoom = if (LocalReserveProfileButton.current) 52.dp * titleCollapse.fraction else 0.dp
+                    Box(Modifier.padding(start = 16.dp, end = 16.dp + profileRoom)) {
                         NuvioInputField(
                             value = query,
                             onValueChange = { model.query = it },
                             placeholder = if (ExperienceFeatures.MUSIC_ENABLED) "Movies, shows, actors, teams, music…" else "Movies, shows, actors, teams…",
-                            shape = RoundedCornerShape(NuvioTokens.Radius.xl),
+                            shape = RoundedCornerShape(50),
+                            leadingContent = { Icon(Icons.Rounded.Search, contentDescription = null, tint = tokens.colors.textMuted) },
                             modifier = Modifier.onFocusChanged { searchFocused = it.isFocused },
                             trailingContent = when {
                                 model.searching -> ({ CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp)) })
@@ -425,13 +462,13 @@ private fun UniversalSearchScreen(
                     Spacer(Modifier.height(10.dp))
                     if (q.isNotBlank()) {
                         LazyRow(contentPadding = PaddingValues(horizontal = NuvioTokens.Space.s16), horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8)) {
-                            items(UniversalScope.entries.filter { it != UniversalScope.Music || ExperienceFeatures.MUSIC_ENABLED }, key = { it.name }) { s -> Chip(s.label, selected = scope == s, onClick = { model.scope = s }) }
+                            items(UniversalScope.entries.filter { it != UniversalScope.Music || ExperienceFeatures.MUSIC_ENABLED }, key = { it.name }) { s -> SearchPill(s.label, selected = scope == s, onClick = { model.scope = s }) }
                         }
                         Spacer(Modifier.height(10.dp))
                     } else {
                         LazyRow(contentPadding = PaddingValues(horizontal = NuvioTokens.Space.s16), horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8)) {
                             items(IdleTab.entries, key = { it.name }) { tab ->
-                                Chip(tab.label, selected = model.idleTab == tab, onClick = {
+                                SearchPill(tab.label, selected = model.idleTab == tab, onClick = {
                                     model.idleTab = tab
                                     when (tab) {
                                         IdleTab.Movies -> SearchRepository.selectDiscoverType("movie")
@@ -455,12 +492,21 @@ private fun UniversalSearchScreen(
                 }
             }
 
-            NuvioScreen(horizontalPadding = 0.dp, topPadding = 0.dp, listState = listState, autoHidesNativeTabBar = true, modifier = Modifier.weight(1f)) {
+            // Rows fade out under the header instead of being cut off sharply.
+            val fadeColor = MaterialTheme.colorScheme.background
+            val listModifier = Modifier.weight(1f).drawWithContent {
+                drawContent()
+                if (listState.canScrollBackward) {
+                    val fade = 18.dp.toPx()
+                    drawRect(Brush.verticalGradient(listOf(fadeColor, Color.Transparent), endY = fade), size = Size(size.width, fade))
+                }
+            }
+            NuvioScreen(horizontalPadding = 0.dp, topPadding = 0.dp, listState = listState, autoHidesNativeTabBar = true, modifier = listModifier) {
                 if (q.isBlank()) {
                     if (searchFocused && recentSearches.isNotEmpty()) {
                         item(key = "recent_searches") {
                             Column(edge.padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Recent searches", style = MaterialTheme.typography.titleMedium, color = tokens.colors.textPrimary, fontWeight = FontWeight.Bold)
+                                Text("Recent searches", style = MaterialTheme.typography.titleLarge, color = tokens.colors.textPrimary)
                                 recentSearches.forEach { r ->
                                     Row(Modifier.fillMaxWidth().clickable { model.query = r }.padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                         Text(r, style = MaterialTheme.typography.bodyLarge, color = tokens.colors.textPrimary, modifier = Modifier.weight(1f))
@@ -596,11 +642,38 @@ private fun UniversalSearchScreen(
     teamSheet?.let { t -> TeamSheet(t, sportsActions, onDismiss = { teamSheet = null }) }
 }
 
+/**
+ * How far the large "Search" title has folded away. Scrolling up folds it before the list moves; scrolling down
+ * unfolds it once the list is back at its top, the same as a large navigation title on iOS.
+ */
+private class CollapsingTitleState {
+    var maxPx by mutableFloatStateOf(0f)
+    var offsetPx by mutableFloatStateOf(0f)
+        private set
+    val fraction: Float get() = if (maxPx <= 0f) 0f else (offsetPx / maxPx).coerceIn(0f, 1f)
+
+    val connection = object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            if (available.y >= 0f || maxPx <= 0f) return Offset.Zero
+            val before = offsetPx
+            offsetPx = (before - available.y).coerceAtMost(maxPx)
+            return Offset(0f, before - offsetPx)
+        }
+
+        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+            if (available.y <= 0f) return Offset.Zero
+            val before = offsetPx
+            offsetPx = (before - available.y).coerceAtLeast(0f)
+            return Offset(0f, before - offsetPx)
+        }
+    }
+}
+
 @Composable
 private fun UniversalHeading(text: String, onSeeAll: (() -> Unit)? = null) {
     val tokens = MaterialTheme.nuvio
     Row(Modifier.fillMaxWidth().padding(horizontal = NuvioTokens.Space.s16).padding(top = NuvioTokens.Space.s8), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = MaterialTheme.typography.titleLarge, color = tokens.colors.textPrimary, fontWeight = FontWeight.Bold)
+        Text(text, style = MaterialTheme.typography.titleLarge, color = tokens.colors.textPrimary)
         if (onSeeAll != null) Text("See all", style = MaterialTheme.typography.labelLarge, color = tokens.colors.accent, modifier = Modifier.clickable(onClick = onSeeAll).padding(vertical = 4.dp))
     }
 }

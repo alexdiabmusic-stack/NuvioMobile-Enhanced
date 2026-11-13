@@ -322,7 +322,7 @@ private fun NuvioShelfSectionHeader(
 }
 
 @Composable
-private fun NuvioViewAllPill(
+internal fun NuvioViewAllPill(
     onClick: (() -> Unit)?,
     size: NuvioViewAllPillSize,
     modifier: Modifier = Modifier,
