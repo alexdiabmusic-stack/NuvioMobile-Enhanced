@@ -98,6 +98,8 @@ data class SubtitleStyleState(
     val stripSdh: Boolean = false,
     val useForcedSubtitles: Boolean = false,
     val showOnlyPreferredLanguages: Boolean = false,
+    /** Off: the subtitle list is just languages and a tap picks the first file. On: each language's files can be chosen. */
+    val chooseSubtitleFiles: Boolean = false,
     val appearance: SubtitleAppearance = SubtitleAppearance(),
 ) {
     companion object {

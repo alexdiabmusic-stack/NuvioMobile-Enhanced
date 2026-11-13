@@ -259,17 +259,18 @@ private fun FilterChip(
         label = "filter_chip_scale",
     )
     val containerColor by animateColorAsState(
+        // White when chosen, translucent when not: the same pill as the app's other filters.
         targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.onSurface
         } else {
-            backdropControlColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            backdropControlColor(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
         },
         animationSpec = tween(durationMillis = 180),
         label = "filter_chip_container",
     )
     val contentColor by animateColorAsState(
         targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.onPrimary
+            MaterialTheme.colorScheme.surface
         } else {
             MaterialTheme.colorScheme.onSurface
         },
@@ -283,9 +284,9 @@ private fun FilterChip(
                 scaleY = scale
             }
             .height(36.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(50))
             .ambientLiquidGlass(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(50),
                 tint = containerColor,
                 fallback = containerColor,
                 blurRadius = 14.dp,

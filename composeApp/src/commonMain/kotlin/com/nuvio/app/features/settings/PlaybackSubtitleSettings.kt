@@ -114,6 +114,19 @@ internal fun PlaybackSubtitleSettings(
                 )
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
+                    title = "Choose subtitle files",
+                    description = "Show every subtitle file for a language in the player, not just the language",
+                    checked = settings.subtitleStyle.chooseSubtitleFiles,
+                    enabled = !settings.externalPlayerEnabled,
+                    isTablet = isTablet,
+                    onCheckedChange = { enabled ->
+                        PlayerSettingsRepository.setSubtitleStyle(
+                            settings.subtitleStyle.copy(chooseSubtitleFiles = enabled),
+                        )
+                    },
+                )
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
                     title = stringResource(Res.string.settings_playback_auto_show_subtitles_on_rewind),
                     description = stringResource(Res.string.settings_playback_auto_show_subtitles_on_rewind_description),
                     checked = settings.autoShowSubtitlesOnRewindEnabled,

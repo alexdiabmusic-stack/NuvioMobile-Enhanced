@@ -1,6 +1,17 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.ClosedCaption
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,6 +39,7 @@ internal fun LazyListScope.playbackSettingsContent(
                         SettingsNavigationRow(
                             title = stringResource(section.page.titleRes),
                             description = stringResource(section.descriptionRes),
+                            icon = section.page.playbackIcon(),
                             isTablet = isTablet,
                             onClick = { onPageChange(section.page) },
                         )
@@ -48,3 +60,19 @@ internal fun LazyListScope.playbackSettingsContent(
         }
     }
 }
+
+/** An icon per Playback page, so the list reads like the main Settings page. */
+private fun SettingsPage.playbackIcon(): androidx.compose.ui.graphics.vector.ImageVector? =
+    when (this) {
+        SettingsPage.PlaybackPlayer -> Icons.Rounded.PlayCircle
+        SettingsPage.PlaybackStreamSelection -> Icons.Rounded.Bolt
+        SettingsPage.PlaybackUpNext -> Icons.Rounded.SkipNext
+        SettingsPage.PlaybackSkipSegments -> Icons.Rounded.FastForward
+        SettingsPage.PlaybackInterface -> Icons.Rounded.TouchApp
+        SettingsPage.PlaybackAudio -> Icons.Rounded.GraphicEq
+        SettingsPage.PlaybackSubtitles -> Icons.Rounded.ClosedCaption
+        SettingsPage.PlaybackVideo -> Icons.Rounded.HighQuality
+        SettingsPage.PlaybackBuffer -> Icons.Rounded.Memory
+        SettingsPage.PlaybackP2p -> Icons.Rounded.Share
+        else -> null
+    }

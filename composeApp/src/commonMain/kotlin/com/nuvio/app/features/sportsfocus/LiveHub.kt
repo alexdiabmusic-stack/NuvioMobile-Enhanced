@@ -62,6 +62,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.Chip
 import com.nuvio.app.core.ui.PillChip
+import com.nuvio.app.core.ui.collapsingTitle
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.nuvio.app.core.ui.NuvioScreenHeader
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
@@ -238,11 +240,15 @@ private fun LiveGuideScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Uni
         (if (q.isEmpty()) built else built.filter { row -> row.channel.name.lowercase().contains(q) || row.programs.any { it.title.lowercase().contains(q) } }).take(200)
     }
 
-    Column(modifier.fillMaxSize().background(tokens.colors.background).statusBarsPadding().padding(top = com.nuvio.app.core.ui.nuvioPlatformExtraTopPadding)) {
+    val titleCollapse = com.nuvio.app.core.ui.rememberNuvioCollapsingTitleState()
+    Column(
+        modifier.fillMaxSize().background(tokens.colors.background).statusBarsPadding().padding(top = com.nuvio.app.core.ui.nuvioPlatformExtraTopPadding)
+            .nestedScroll(titleCollapse.connection),
+    ) {
         NuvioScreenHeader(
             title = stringResource(Res.string.live_tv_title),
             includeStatusBarPadding = false,
-            modifier = Modifier.padding(horizontal = NuvioTokens.Space.s16),
+            modifier = Modifier.collapsingTitle(titleCollapse).padding(horizontal = NuvioTokens.Space.s16),
             actions = {
                 com.nuvio.app.core.ui.NuvioIconActionButton(
                     icon = androidx.compose.material.icons.Icons.Rounded.Refresh,
@@ -251,7 +257,8 @@ private fun LiveGuideScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Uni
                 )
             },
         )
-        LiveSegmentedControl(segment, onSelect, Modifier.padding(horizontal = NuvioTokens.Space.s16).padding(top = 6.dp, bottom = NuvioTokens.Space.s8))
+        val profileRoom = if (com.nuvio.app.navigation.LocalReserveProfileButton.current) 52.dp * titleCollapse.fraction else 0.dp
+        LiveSegmentedControl(segment, onSelect, Modifier.padding(start = NuvioTokens.Space.s16, end = NuvioTokens.Space.s16 + profileRoom).padding(top = 6.dp, bottom = NuvioTokens.Space.s8))
         Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = NuvioTokens.Space.s16, vertical = NuvioTokens.Space.s8),
             horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
@@ -498,6 +505,7 @@ private fun LiveSportsScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Un
     val settings by repo.settings.collectAsStateWithLifecycle()
     val matches by repo.matches.collectAsStateWithLifecycle()
     val use24h = use24h()
+    val now = rememberLiveTvEpgNowMillis()
     var forYou by rememberSaveable { mutableStateOf(false) }
     var sportName by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -540,93 +548,18 @@ private fun LiveSportsScreen(segment: LiveSegment, onSelect: (LiveSegment) -> Un
                 }
             }
         }
+        // The same score card as the Sports tab: tap to watch, hold for the Game Centre.
         items(shown, key = { "live-" + it.id }) { ev ->
-            LiveGameCard(
+            ScoreCard(
                 ev = ev,
-                channels = emptyList(),
-                hideScores = settings.hideScores,
+                follows = follows,
+                now = now,
                 use24h = use24h,
-                onOpen = { actions.onOpenGame(ev) },
-                onWatch = { _ -> actions.watchOrOpen(ev, matches) },
-                modifier = Modifier.padding(horizontal = NuvioTokens.Space.s16),
+                hideScores = settings.hideScores,
+                onClick = { actions.watchOrOpen(ev, matches) },
+                onDetails = { actions.onOpenGame(ev) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = NuvioTokens.Space.s16),
             )
-        }
-    }
-}
-
-@Composable
-private fun LiveGameCard(
-    ev: SportsEvent,
-    channels: List<ChannelMatch>,
-    hideScores: Boolean,
-    use24h: Boolean,
-    onOpen: () -> Unit,
-    onWatch: (ChannelMatch?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val tokens = MaterialTheme.nuvio
-    val league = SportsCatalog.league(ev.leagueId)
-    val sides = ev.ordered(league?.sport ?: Sport.OTHER)
-    val showScore = ev.hasScore && !hideScores
-    Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(NuvioTokens.Radius.xl)).background(tokens.colors.surface)
-            .clickable { onWatch(null) }.padding(NuvioTokens.Space.s16),
-        verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8)) {
-                LeagueMark(league, 18.dp)
-                Text(league?.short.orEmpty(), style = MaterialTheme.typography.labelLarge, color = tokens.colors.textMuted, fontWeight = FontWeight.SemiBold)
-            }
-            StateBadge(ev, use24h)
-            Icon(
-                Icons.Rounded.Insights,
-                contentDescription = "Game Centre",
-                tint = tokens.colors.accent,
-                modifier = Modifier.padding(start = NuvioTokens.Space.s8).size(32.dp).clip(CircleShape)
-                    .background(tokens.colors.accent.copy(alpha = 0.14f)).clickable(onClick = onOpen).padding(6.dp),
-            )
-        }
-        if (sides.size == 2) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TeamLogo(sides[0].team, 44.dp)
-                    Text(sides[0].team.abbr.ifBlank { sides[0].team.name }, style = MaterialTheme.typography.titleMedium, color = tokens.colors.textPrimary, fontWeight = FontWeight.Bold)
-                }
-                Text(
-                    if (showScore) "${sides[0].score ?: "–"} – ${sides[1].score ?: "–"}" else "vs",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = tokens.colors.textPrimary,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.padding(horizontal = NuvioTokens.Space.s8),
-                )
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TeamLogo(sides[1].team, 44.dp)
-                    Text(sides[1].team.abbr.ifBlank { sides[1].team.name }, style = MaterialTheme.typography.titleMedium, color = tokens.colors.textPrimary, fontWeight = FontWeight.Bold)
-                }
-            }
-        } else {
-            Text(ev.title, style = MaterialTheme.typography.titleLarge, color = tokens.colors.textPrimary, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-        Text(
-            "LIVE · " + cornerStatus(ev, use24h, hideScores),
-            style = MaterialTheme.typography.bodyMedium,
-            color = tokens.colors.textMuted,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-        )
-        val finding by com.nuvio.app.features.sports.SportsWatch.finding.collectAsStateWithLifecycle()
-        if (ev.state != GameState.POST) {
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(NuvioTokens.Radius.lg)).background(tokens.colors.accent).clickable { onWatch(channels.firstOrNull()) }
-                    .padding(vertical = NuvioTokens.Space.s12),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (ev.id in finding) androidx.compose.material3.CircularProgressIndicator(color = tokens.colors.onAccent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                else Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = tokens.colors.onAccent, modifier = Modifier.size(22.dp))
-                Text("Watch Live", style = MaterialTheme.typography.titleSmall, color = tokens.colors.onAccent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
-            }
         }
     }
 }

@@ -124,20 +124,20 @@ internal fun FeaturedGameCard(
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12)) {
             Row(
-                Modifier.clip(RoundedCornerShape(999.dp)).background(tokens.colors.accent).clickable(onClick = onClick)
+                Modifier.clip(RoundedCornerShape(999.dp)).background(androidx.compose.ui.graphics.Color.White).clickable(onClick = onClick)
                     .padding(start = 14.dp, end = 20.dp, top = 11.dp, bottom = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (finding) {
-                    androidx.compose.material3.CircularProgressIndicator(color = tokens.colors.onAccent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                    androidx.compose.material3.CircularProgressIndicator(color = androidx.compose.ui.graphics.Color.Black, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                 } else {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = tokens.colors.onAccent, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = androidx.compose.ui.graphics.Color.Black, modifier = Modifier.size(22.dp))
                 }
                 Text(
                     if (ev.state == com.nuvio.app.features.sports.GameState.LIVE) "Watch Live" else "Watch",
                     style = MaterialTheme.typography.titleSmall,
-                    color = tokens.colors.onAccent,
+                    color = androidx.compose.ui.graphics.Color.Black,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -145,8 +145,8 @@ internal fun FeaturedGameCard(
             Icon(
                 Icons.Rounded.Insights,
                 contentDescription = "Game Centre",
-                tint = tokens.colors.accent,
-                modifier = Modifier.size(44.dp).clip(CircleShape).background(tokens.colors.accent.copy(alpha = 0.14f)).clickable(onClick = onGameCentre).padding(11.dp),
+                tint = tokens.colors.textPrimary,
+                modifier = Modifier.size(44.dp).clip(CircleShape).background(tokens.colors.textPrimary.copy(alpha = 0.12f)).clickable(onClick = onGameCentre).padding(11.dp),
             )
         }
     }
@@ -240,9 +240,12 @@ internal fun SportsDayCard(
         }
         Text(
             "See upcoming schedule",
-            style = MaterialTheme.typography.titleMedium,
-            color = tokens.colors.accent,
-            modifier = Modifier.clickable(onClick = onSeeSchedule).padding(top = NuvioTokens.Space.s2),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = tokens.colors.textPrimary,
+            modifier = Modifier.padding(top = NuvioTokens.Space.s2).clip(RoundedCornerShape(50))
+                .background(tokens.colors.textPrimary.copy(alpha = 0.12f)).clickable(onClick = onSeeSchedule)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         )
     }
 }

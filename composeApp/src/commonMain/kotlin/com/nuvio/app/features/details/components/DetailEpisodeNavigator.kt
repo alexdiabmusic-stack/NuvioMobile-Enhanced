@@ -192,7 +192,7 @@ internal fun EpisodeNavigatorBar(
     modifier: Modifier = Modifier,
 ) {
     val tokens = MaterialTheme.nuvio
-    val fieldShape = RoundedCornerShape(14.dp)
+    val fieldShape = RoundedCornerShape(50)
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -202,11 +202,10 @@ internal fun EpisodeNavigatorBar(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = 44.dp)
+                    .heightIn(min = 40.dp)
                     .clip(fieldShape)
-                    .background(tokens.colors.surfaceSheet.copy(alpha = 0.6f))
-                    .border(1.dp, tokens.colors.borderDefault, fieldShape)
-                    .padding(horizontal = 12.dp),
+                    .background(tokens.colors.textPrimary.copy(alpha = 0.08f))
+                    .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -278,14 +277,14 @@ internal fun EpisodeNavigatorBar(
 @Composable
 private fun EpisodeNavigatorChip(text: String, onClick: () -> Unit) {
     val tokens = MaterialTheme.nuvio
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(50)
     Box(
         modifier = Modifier
-            .heightIn(min = 44.dp)
+            .heightIn(min = 40.dp)
             .clip(shape)
-            .border(1.dp, tokens.colors.borderDefault, shape)
+            .background(tokens.colors.textPrimary.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

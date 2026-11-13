@@ -32,11 +32,9 @@ internal fun LazyListScope.integrationsContent(
     onLiveTvClick: () -> Unit,
     onDiscordClick: () -> Unit,
 ) {
+    // The page is already titled Integrations, so its one group goes without a repeated section heading.
     item {
-        SettingsSection(
-            title = stringResource(Res.string.settings_integrations_section_title),
-            isTablet = isTablet,
-        ) {
+        run {
             SettingsGroup(isTablet = isTablet) {
                 SettingsNavigationRow(
                     title = stringResource(Res.string.compose_settings_page_debrid),

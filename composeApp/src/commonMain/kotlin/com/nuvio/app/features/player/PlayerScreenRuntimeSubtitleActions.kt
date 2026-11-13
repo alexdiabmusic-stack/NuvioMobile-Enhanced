@@ -119,7 +119,9 @@ internal fun PlayerScreenRuntime.applySubtitleAutoSyncCue(cue: SubtitleSyncCue) 
 internal fun PlayerScreenRuntime.openSubtitleSyncByEar() {
     subtitleSyncHeardPositionMs = null
     subtitleSyncSawPositionMs = null
+    // Audio and subtitles share a panel, so close it whichever button opened it.
     showSubtitleModal = false
+    showAudioModal = false
     showSubtitleSyncByEar = true
 }
 

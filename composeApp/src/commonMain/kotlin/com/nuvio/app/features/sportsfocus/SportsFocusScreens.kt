@@ -87,7 +87,7 @@ private fun SectionHeader(title: String, count: Int? = null) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = tokens.colors.textPrimary, fontWeight = FontWeight.Bold)
+        Text(title, style = MaterialTheme.typography.titleLarge, color = tokens.colors.textPrimary)
         count?.let { Text("$it", style = MaterialTheme.typography.labelLarge, color = tokens.colors.textMuted) }
     }
 }
@@ -202,8 +202,8 @@ fun SportsFocusHome(
                     horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
                 ) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(SportsLiveRed))
-                    Text("LIVE NOW", style = MaterialTheme.typography.titleMedium, color = SportsLiveRed, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text("See All", style = MaterialTheme.typography.titleSmall, color = tokens.colors.accent, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable(onClick = onOpenLive))
+                    Text("Live Now", style = MaterialTheme.typography.titleLarge, color = tokens.colors.textPrimary, modifier = Modifier.weight(1f))
+                    com.nuvio.app.core.ui.NuvioViewAllPill(onClick = onOpenLive, size = com.nuvio.app.core.ui.NuvioViewAllPillSize.Default)
                 }
             }
             if (liveSports.size > 1) {
@@ -217,14 +217,14 @@ fun SportsFocusHome(
                     }
                 }
             }
-            items(liveShown.take(12), key = { "live-" + it.id }) { ev ->
-                GameCard(ev, follows, now, use24h, settings.hideScores, channelsFor(ev), edge, onGameCentre = { actions.onOpenGame(ev) }) { actions.watchOrOpen(ev, matches) }
+            item(key = "live-row") {
+                ScoreCardRow(liveShown.take(12), "live", follows, now, use24h, settings.hideScores, actions, matches)
             }
         }
         if (mine.isNotEmpty()) {
             item { SectionHeader("Your teams") }
-            items(mine.take(6), key = { "mine-" + it.id }) { ev ->
-                GameCard(ev, follows, now, use24h, settings.hideScores, channelsFor(ev), edge, onGameCentre = { actions.onOpenGame(ev) }) { actions.watchOrOpen(ev, matches) }
+            item(key = "mine-row") {
+                ScoreCardRow(mine.take(12), "mine", follows, now, use24h, settings.hideScores, actions, matches)
             }
         } else if (follows.isEmpty) {
             item {
@@ -238,15 +238,15 @@ fun SportsFocusHome(
         }
         if (today.isNotEmpty()) {
             item { SectionHeader("Today") }
-            items(today.take(12), key = { "today-" + it.id }) { ev ->
-                GameCard(ev, follows, now, use24h, settings.hideScores, channelsFor(ev), edge, onGameCentre = { actions.onOpenGame(ev) }) { actions.watchOrOpen(ev, matches) }
+            item(key = "today-row") {
+                ScoreCardRow(today.take(20), "today", follows, now, use24h, settings.hideScores, actions, matches)
             }
         }
         if (stories.isNotEmpty()) {
             item {
                 Row(Modifier.fillMaxWidth().padding(end = NuvioTokens.Space.s16), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { SectionHeader("Top stories") }
-                    Text("See all", style = MaterialTheme.typography.labelLarge, color = tokens.colors.accent, modifier = Modifier.clickable(onClick = onOpenNews))
+                    com.nuvio.app.core.ui.NuvioViewAllPill(onClick = onOpenNews, size = com.nuvio.app.core.ui.NuvioViewAllPillSize.Default)
                 }
             }
             items(keyedStories, key = { "story-" + it.lazyKey }) { entry ->
@@ -280,16 +280,16 @@ fun SportsFocusFollowing(actions: SportsActions, onOpenArticle: (NewsArticle) ->
         NuvioScreenHeader(
             title = "Following",
             includeStatusBarPadding = false,
-            modifier = Modifier.padding(horizontal = NuvioTokens.Space.s8),
+            modifier = Modifier.padding(horizontal = NuvioTokens.Space.s16),
             actions = {
                 val editing = mode == FollowingMode.Manage.ordinal
                 Text(
                     if (editing) "Done" else "Edit",
                     style = MaterialTheme.typography.titleSmall,
-                    color = tokens.colors.accent,
+                    color = tokens.colors.textPrimary,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(end = NuvioTokens.Space.s8).clip(RoundedCornerShape(NuvioTokens.Radius.full))
-                        .background(tokens.colors.surface)
+                    modifier = Modifier.clip(RoundedCornerShape(NuvioTokens.Radius.full))
+                        .background(tokens.colors.textPrimary.copy(alpha = 0.12f))
                         .clickable { mode = if (editing) FollowingMode.Games.ordinal else FollowingMode.Manage.ordinal }
                         .padding(horizontal = NuvioTokens.Space.s16, vertical = NuvioTokens.Space.s8),
                 )
@@ -319,6 +319,36 @@ fun SportsFocusFollowing(actions: SportsActions, onOpenArticle: (NewsArticle) ->
             SportsSearchTab(known, follows, actions)
         } else {
             SportsFollowingTab(follows, settings, actions)
+        }
+    }
+}
+
+/** A row of the Sports tab's score cards: tap to watch, hold for the Game Centre. */
+@Composable
+private fun ScoreCardRow(
+    games: List<SportsEvent>,
+    keyPrefix: String,
+    follows: com.nuvio.app.features.sports.SportsFollows,
+    now: Long,
+    use24h: Boolean,
+    hideScores: Boolean,
+    actions: SportsActions,
+    matches: Map<String, List<com.nuvio.app.features.sports.ChannelMatch>>,
+) {
+    androidx.compose.foundation.lazy.LazyRow(
+        contentPadding = PaddingValues(horizontal = NuvioTokens.Space.s16),
+        horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12),
+    ) {
+        items(games, key = { "$keyPrefix-" + it.id }) { ev ->
+            ScoreCard(
+                ev = ev,
+                follows = follows,
+                now = now,
+                use24h = use24h,
+                hideScores = hideScores,
+                onClick = { actions.watchOrOpen(ev, matches) },
+                onDetails = { actions.onOpenGame(ev) },
+            )
         }
     }
 }

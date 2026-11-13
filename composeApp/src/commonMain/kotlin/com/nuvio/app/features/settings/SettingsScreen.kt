@@ -1,5 +1,9 @@
 package com.nuvio.app.features.settings
 
+import com.nuvio.app.core.ui.NuvioTokens
+import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.core.ui.background.appBackgroundCover
+import com.nuvio.app.core.ui.nuvioScreenSideBleed
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.rememberScrollState
@@ -60,6 +64,7 @@ import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.LocalNuvioBottomNavigationOverlayPadding
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioScreenHeader
+import com.nuvio.app.core.ui.collapsingTitle
 import com.nuvio.app.core.ui.PlatformBackHandler
 import com.nuvio.app.core.ui.isLiquidGlassNativeTabBarSupported
 import com.nuvio.app.features.addons.AddonRepository
@@ -641,9 +646,13 @@ private fun MobileSettingsScreen(
             }
         }
 
+        // The large "Settings" title folds away as the page scrolls, as on Search and Live TV.
+        val titleCollapse = com.nuvio.app.core.ui.rememberNuvioCollapsingTitleState()
+        val collapsesTitle = page == SettingsPage.Root
         LaunchedEffect(scrollToTopRequests) {
             scrollToTopRequests.collect {
                 listState.animateScrollToItem(0)
+                titleCollapse.expand()
             }
         }
 
@@ -651,22 +660,41 @@ private fun MobileSettingsScreen(
         val profileDrawsOwnChrome = page == SettingsPage.Profile && showInternalHeader && !LocalUseNativeNavigation.current
         ProfileInsightsPullToRefresh(enabled = page == SettingsPage.Profile) {
         NuvioScreen(
-            modifier = Modifier.nestedScroll(rootSearchRevealConnection),
+            modifier = Modifier.nestedScroll(rootSearchRevealConnection)
+                .then(if (collapsesTitle) Modifier.nestedScroll(titleCollapse.connection) else Modifier),
             listState = listState,
             autoHidesNativeTabBar = true,
-            topPadding = if (page == SettingsPage.Profile) 0.dp else null,
+            topPadding = if (page == SettingsPage.Profile || collapsesTitle) 0.dp else null,
         ) {
             if (profileDrawsOwnChrome) {
             } else if (showInternalHeader) {
                 stickyHeader {
                     val previousPage = page.previousPage()
-                    NuvioScreenHeader(
-                        title = stringResource(page.titleRes),
-                        onBack = previousPage?.let { { onNavigateBack() } },
-                    )
+                    if (collapsesTitle) {
+                        // A fixed band behind the status bar, with the large title folding away beneath it.
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .nuvioScreenSideBleed()
+                                .appBackgroundCover(MaterialTheme.nuvio.colors.background),
+                        ) {
+                            Spacer(Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding()))
+                            NuvioScreenHeader(
+                                title = stringResource(page.titleRes),
+                                includeStatusBarPadding = false,
+                                modifier = Modifier.collapsingTitle(titleCollapse),
+                            )
+                        }
+                    } else {
+                        NuvioScreenHeader(
+                            title = stringResource(page.titleRes),
+                            onBack = previousPage?.let { { onNavigateBack() } },
+                        )
+                    }
                 }
             } else {
-                item { Spacer(modifier = Modifier.height(44.dp)) }
+                // Under the iPhone's own navigation bar the top inset already includes the bar, so no extra spacer:
+                // the old 44pt one left a band of empty space at the top of every page.
             }
 
             when (page) {

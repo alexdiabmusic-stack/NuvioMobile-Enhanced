@@ -736,6 +736,7 @@ internal object SettingsConfigTransfer {
         PlayerSettingsStorage.loadSubtitleStripSdh()?.let { put("subtitle_strip_sdh", encodeSyncBoolean(it)) }
         PlayerSettingsStorage.loadSubtitleUseForcedSubtitles()?.let { put("subtitle_use_forced_subtitles", encodeSyncBoolean(it)) }
         PlayerSettingsStorage.loadSubtitleShowOnlyPreferredLanguages()?.let { put("subtitle_show_only_preferred_languages", encodeSyncBoolean(it)) }
+        PlayerSettingsStorage.loadSubtitleChooseFiles()?.let { put("subtitle_choose_files", encodeSyncBoolean(it)) }
         PlayerSettingsStorage.loadStreamReuseLastLinkEnabled()?.let { put("stream_reuse_last_link_enabled", encodeSyncBoolean(it)) }
         PlayerSettingsStorage.loadStreamReuseLastLinkCacheHours()?.let { put("stream_reuse_last_link_cache_hours", encodeSyncInt(it)) }
         PlayerSettingsStorage.loadAndroidPlaybackEngine()?.let { put("android_playback_engine", encodeSyncString(it)) }
@@ -846,6 +847,7 @@ internal object SettingsConfigTransfer {
         payload.decodeSyncBoolean("subtitle_strip_sdh")?.let { PlayerSettingsStorage.saveSubtitleStripSdh(it) }
         payload.decodeSyncBoolean("subtitle_use_forced_subtitles")?.let { PlayerSettingsStorage.saveSubtitleUseForcedSubtitles(it) }
         payload.decodeSyncBoolean("subtitle_show_only_preferred_languages")?.let { PlayerSettingsStorage.saveSubtitleShowOnlyPreferredLanguages(it) }
+        payload.decodeSyncBoolean("subtitle_choose_files")?.let { PlayerSettingsStorage.saveSubtitleChooseFiles(it) }
         payload.decodeSyncBoolean("stream_reuse_last_link_enabled")?.let { PlayerSettingsStorage.saveStreamReuseLastLinkEnabled(it) }
         payload.decodeSyncInt("stream_reuse_last_link_cache_hours")?.let { PlayerSettingsStorage.saveStreamReuseLastLinkCacheHours(it) }
         payload.decodeSyncString("android_playback_engine")?.let { PlayerSettingsStorage.saveAndroidPlaybackEngine(it) }

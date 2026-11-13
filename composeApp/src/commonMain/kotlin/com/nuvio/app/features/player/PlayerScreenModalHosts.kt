@@ -38,6 +38,8 @@ internal fun PlayerScreenModalHosts(
     centerMixLevelDb: Int,
     onCenterMixLevelChanged: (Int) -> Unit,
     showSubtitleModal: Boolean,
+    /** Live TV has no subtitle choice, so the panel shows audio only there. */
+    subtitlesAvailable: Boolean = true,
     subtitleTracks: List<SubtitleTrack>,
     selectedSubtitleIndex: Int,
     addonSubtitles: List<AddonSubtitle>,
@@ -144,12 +146,13 @@ internal fun PlayerScreenModalHosts(
         )
     }
 
-    AudioTrackModal(
-        visible = showAudioModal,
+    // Audio and subtitles share one Netflix-style panel; either player button opens it.
+    PlayerAudioSubtitlesPanel(
+        visible = showAudioModal || showSubtitleModal,
+        showSubtitles = subtitlesAvailable,
         audioTracks = audioTracks,
-        selectedIndex = selectedAudioIndex,
-        onTrackSelected = onAudioTrackSelected,
-        onDismiss = onAudioModalDismissed,
+        selectedAudioIndex = selectedAudioIndex,
+        onAudioTrackSelected = onAudioTrackSelected,
         showAudioDelay = showAudioDelay,
         audioDelayMs = audioDelayMs,
         onAudioDelayChanged = onAudioDelayChanged,
@@ -161,10 +164,6 @@ internal fun PlayerScreenModalHosts(
         showCenterMix = showCenterMix,
         centerMixLevelDb = centerMixLevelDb,
         onCenterMixLevelChanged = onCenterMixLevelChanged,
-    )
-
-    SubtitleModal(
-        visible = showSubtitleModal,
         subtitleTracks = subtitleTracks,
         selectedSubtitleIndex = selectedSubtitleIndex,
         addonSubtitles = addonSubtitles,
@@ -176,17 +175,20 @@ internal fun PlayerScreenModalHosts(
         subtitleDelayMs = subtitleDelayMs,
         selectedAddonSubtitle = selectedAddonSubtitle,
         subtitleAutoSyncState = subtitleAutoSyncState,
-        onBuiltInTrackSelected = onBuiltInSubtitleTrackSelected,
+        onBuiltInSubtitleSelected = onBuiltInSubtitleTrackSelected,
         onAddonSubtitleSelected = onAddonSubtitleSelected,
         onFetchAddonSubtitles = onFetchAddonSubtitles,
-        onStyleChanged = onSubtitleStyleChanged,
+        onSubtitleStyleChanged = onSubtitleStyleChanged,
         onSubtitleDelayChanged = onSubtitleDelayChanged,
         onSubtitleDelayReset = onSubtitleDelayReset,
         onSyncByEarClick = onSyncByEarClick,
         onAutoSyncCapture = onAutoSyncCapture,
         onAutoSyncCueSelected = onAutoSyncCueSelected,
         onAutoSyncReload = onAutoSyncReload,
-        onDismiss = onSubtitleModalDismissed,
+        onDismiss = {
+            if (showAudioModal) onAudioModalDismissed()
+            if (showSubtitleModal) onSubtitleModalDismissed()
+        },
     )
 
     IosVideoSettingsModal(

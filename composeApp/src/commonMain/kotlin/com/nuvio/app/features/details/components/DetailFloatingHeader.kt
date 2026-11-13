@@ -1,5 +1,6 @@
 package com.nuvio.app.features.details.components
 
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -233,7 +234,7 @@ private fun DetailFloatingHeaderAction(
         }
         if (isSaved) {
             Icon(
-                painter = painterResource(Res.drawable.sidebar_library),
+                imageVector = Icons.Default.Check,
                 contentDescription = contentDescription,
                 tint = MaterialTheme.colorScheme.onBackground,
             )

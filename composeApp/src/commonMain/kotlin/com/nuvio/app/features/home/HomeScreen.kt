@@ -1,5 +1,15 @@
 package com.nuvio.app.features.home
 
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
+import com.nuvio.app.core.ui.nuvio
 import androidx.compose.foundation.layout.Column
 import com.nuvio.app.features.home.components.HomeComingToDigitalRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -1027,7 +1037,10 @@ fun HomeScreen(
             { url -> activeHeroArtworkUrl = url }
         }
 
+        // Read here: inside the Box below, maxHeight would be ambiguous between the two scopes.
+        val homeViewportHeight = maxHeight
         DynamicArtworkBackground(artworkUrl = activeHeroArtworkUrl) {
+          androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
             NuvioScreen(
                 modifier = Modifier.fillMaxSize().then(heroStretchModifier),
                 horizontalPadding = 0.dp,
@@ -1046,7 +1059,7 @@ fun HomeScreen(
                             when {
                                 isLoading -> HomeSkeletonHero(
                                     modifier = Modifier,
-                                    viewportHeight = maxHeight,
+                                    viewportHeight = homeViewportHeight,
                                     mobileBelowSectionHeightHint = mobileHeroBelowSectionHeightHint,
                                     heroStyle = homeSettingsUiState.heroStyle,
                                 )
@@ -1054,7 +1067,7 @@ fun HomeScreen(
                                 homeUiState.heroItems.isNotEmpty() -> HomeHeroSection(
                                     items = homeHeroState.items,
                                     modifier = Modifier,
-                                    viewportHeight = maxHeight,
+                                    viewportHeight = homeViewportHeight,
                                     mobileBelowSectionHeightHint = mobileHeroBelowSectionHeightHint,
                                     heroStyle = homeSettingsUiState.heroStyle,
                                     listState = homeListState,
@@ -1075,7 +1088,7 @@ fun HomeScreen(
 
                                 else -> HomeHeroReservedSpace(
                                     modifier = Modifier,
-                                    viewportHeight = maxHeight,
+                                    viewportHeight = homeViewportHeight,
                                     mobileBelowSectionHeightHint = mobileHeroBelowSectionHeightHint,
                                     heroStyle = homeSettingsUiState.heroStyle,
                                 )
@@ -1279,8 +1292,10 @@ fun HomeScreen(
                                     rowContentPadding = PaddingValues(horizontal = homeSectionPadding),
                                     key = { it.stableKey() },
                                 ) { pick ->
+                                    // Every third row switches to wide artwork, so Home isn't one poster rail after another.
                                     HomePosterCard(
                                         item = pick,
+                                        useLandscapeBackdropMode = rowIndex % 3 == 2,
                                         isWatched = WatchingState.isPosterWatched(watchedUiState.watchedKeys, pick, fullyWatchedForBecause),
                                         onClick = onPosterClick?.let { { it(pick) } },
                                         onLongClick = onPosterLongClick?.let { { it(pick) } },
@@ -1364,8 +1379,54 @@ fun HomeScreen(
                     }
                 }
             }
+            HomeTopScrim(homeListState, showHeroSlot)
+          }
         }
     }
+}
+
+/**
+ * Once the hero has scrolled away, a soft dark fade behind the status bar and the profile button, so rows never
+ * slide under the clock and the avatar sits on something calm instead of on poster art.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.HomeTopScrim(listState: LazyListState, hasHero: Boolean) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val statusBar = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val target by remember(listState, hasHero) {
+        derivedStateOf {
+            val first = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset
+            when {
+                first > (if (hasHero) 1 else 0) -> 1f
+                hasHero && first == 0 -> {
+                    // Fade in over the last stretch of the hero.
+                    val heroHeight = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: return@derivedStateOf 0f
+                    val fadeStart = heroHeight - with(density) { 180.dp.roundToPx() }
+                    ((offset - fadeStart).toFloat() / with(density) { 120.dp.toPx() }).coerceIn(0f, 1f)
+                }
+                hasHero -> 1f
+                else -> (offset / with(density) { 40.dp.toPx() }).coerceIn(0f, 1f)
+            }
+        }
+    }
+    val alpha by androidx.compose.animation.core.animateFloatAsState(target, label = "HomeTopScrim")
+    if (alpha <= 0.01f) return
+    val bg = MaterialTheme.nuvio.colors.background
+    androidx.compose.foundation.layout.Box(
+        Modifier
+            .align(Alignment.TopCenter)
+            .fillMaxWidth()
+            .height(maxOf(statusBar, 47.dp) + 76.dp)
+            .graphicsLayer { this.alpha = alpha }
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to bg.copy(alpha = 0.97f),
+                    0.62f to bg.copy(alpha = 0.85f),
+                    1f to bg.copy(alpha = 0f),
+                ),
+            ),
+    )
 }
 
 private fun LazyListScope.homeContinueWatchingSections(

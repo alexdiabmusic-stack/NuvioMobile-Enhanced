@@ -263,14 +263,17 @@ fun DetailSeriesContent(
                             if (navigatorOrderInitialized) rowState.scrollToItem(0)
                             navigatorOrderInitialized = true
                         }
-                        EpisodeNavigatorBar(
-                            state = navigator,
-                            shownCount = shownEpisodes.size,
-                            totalCount = seasonEpisodes.size,
-                            onSubmitNumber = { number ->
-                                seasonEpisodes.firstOrNull { it.episode == number }?.let(jumpTo)
-                            },
-                        )
+                        // Search, Go to and Sort earn their space on long seasons; an 8-episode season scrolls fine without.
+                        if (seasonEpisodes.size > EPISODE_NAVIGATOR_MIN_EPISODES) {
+                            EpisodeNavigatorBar(
+                                state = navigator,
+                                shownCount = shownEpisodes.size,
+                                totalCount = seasonEpisodes.size,
+                                onSubmitNumber = { number ->
+                                    seasonEpisodes.firstOrNull { it.episode == number }?.let(jumpTo)
+                                },
+                            )
+                        }
                         if (navigator.goToSheetVisible) {
                             EpisodeGoToSheet(
                                 seasonLabel = seasonDisplayLabel(meta, seasonForContent),
@@ -588,20 +591,10 @@ private fun SeasonViewModeToggle(
     val isPosters = mode == SeasonViewMode.Posters
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .ambientLiquidGlass(
-                shape = RoundedCornerShape(8.dp),
-                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                refractionHeight = 6.dp,
-            )
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(8.dp),
-            )
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.nuvio.colors.textPrimary.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 14.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -614,7 +607,7 @@ private fun SeasonViewModeToggle(
                 fontSize = sizing.seasonToggleTextSize,
                 fontWeight = FontWeight.SemiBold,
             ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.nuvio.colors.textPrimary,
         )
     }
 }
@@ -1775,3 +1768,6 @@ private fun formatEpisodeRating(rating: Double): String {
     val tenth = (roundedTenths % 10).absoluteValue
     return "$whole.$tenth"
 }
+
+/** Seasons longer than this get the episode search, Go to and Sort bar. */
+private const val EPISODE_NAVIGATOR_MIN_EPISODES = 20

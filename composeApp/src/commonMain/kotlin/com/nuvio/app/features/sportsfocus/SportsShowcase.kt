@@ -469,7 +469,7 @@ private fun LiveDot() {
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ScoreCard(
+internal fun ScoreCard(
     ev: SportsEvent,
     follows: SportsFollows,
     now: Long,
@@ -477,6 +477,7 @@ private fun ScoreCard(
     hideScores: Boolean,
     onClick: () -> Unit,
     onDetails: () -> Unit,
+    modifier: Modifier = Modifier.width(272.dp),
 ) {
     val tokens = MaterialTheme.nuvio
     val league = SportsCatalog.league(ev.leagueId)
@@ -485,8 +486,7 @@ private fun ScoreCard(
     val isLive = ev.state == GameState.LIVE
     val tint = sides.firstOrNull()?.let { deep(bandBase(it.team)) } ?: deep(leagueColor(league))
     Column(
-        Modifier
-            .width(272.dp)
+        modifier
             .clip(RoundedCornerShape(14.dp))
             .background(tokens.colors.surface)
             .background(Brush.linearGradient(0f to tint.copy(alpha = 0.55f), 0.65f to Color.Transparent, start = Offset.Zero, end = Offset(700f, 500f)))

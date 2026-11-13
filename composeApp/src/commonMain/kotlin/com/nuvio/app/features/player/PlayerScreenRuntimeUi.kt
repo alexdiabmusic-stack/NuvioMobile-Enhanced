@@ -1007,10 +1007,7 @@ private fun PlayerScreenRuntime.RenderPlayerModals() {
                 persistAudioPreference(audioTracks.firstOrNull { it.index == index })
                 playerController?.selectAudioTrack(index)
             }
-            scope.launch {
-                kotlinx.coroutines.delay(200)
-                showAudioModal = false
-            }
+            // The panel stays open, as Netflix's does, so subtitles can be changed in the same visit.
         },
         onAudioModalDismissed = { showAudioModal = false },
         showAudioDelay = playerController?.supportsAudioDelay == true,
@@ -1025,6 +1022,7 @@ private fun PlayerScreenRuntime.RenderPlayerModals() {
         centerMixLevelDb = centerMixLevelDb,
         onCenterMixLevelChanged = { db -> setCenterMixLevel(db) },
         showSubtitleModal = showSubtitleModal,
+        subtitlesAvailable = !isLiveTvPlayback,
         subtitleTracks = serverSubtitleTracks.ifEmpty { subtitleTracks },
         selectedSubtitleIndex = if (serverSubtitleTracks.isEmpty()) {
             selectedSubtitleIndex

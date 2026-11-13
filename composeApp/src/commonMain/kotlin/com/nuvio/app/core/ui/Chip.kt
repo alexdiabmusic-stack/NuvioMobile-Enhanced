@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+/** The app's one chip: the same white-when-chosen pill as [PillChip], kept under this name for existing callers. */
 @Composable
 fun Chip(
     label: String,
@@ -27,38 +28,32 @@ fun Chip(
     enabled: Boolean = true,
 ) {
     val tokens = MaterialTheme.nuvio
-    Surface(
-        selected = selected,
-        onClick = onClick,
-        modifier = modifier,
-        enabled = enabled,
-        shape = RoundedCornerShape(NuvioTokens.Radius.md),
-        color = if (selected) tokens.colors.overlaySelected else Color.Transparent,
-        contentColor = when {
-            !enabled -> tokens.colors.textDisabled
+    val background by animateColorAsState(
+        when {
             selected -> tokens.colors.textPrimary
-            else -> tokens.colors.textMuted
+            else -> tokens.colors.textPrimary.copy(alpha = if (enabled) 0.12f else 0.06f)
         },
-        border = BorderStroke(
-            width = tokens.borders.thin,
-            color = when {
-                selected -> tokens.colors.borderSelected
-                enabled -> tokens.colors.borderStrong
-                else -> tokens.colors.borderDefault
-            },
-        ),
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(
-                horizontal = NuvioTokens.Space.s12,
-                vertical = tokens.components.chipVerticalPadding,
-            ),
-            style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+    )
+    val content by animateColorAsState(
+        when {
+            !enabled -> tokens.colors.textDisabled
+            selected -> tokens.colors.background
+            else -> tokens.colors.textPrimary
+        },
+    )
+    Text(
+        label,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = content,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(background)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 /** A filter pill in Home's button style: solid when chosen (like Play), translucent when not (like My List). */

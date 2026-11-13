@@ -123,7 +123,7 @@ fun DiscoverScreen(
     ) {
         item {
             Column(Modifier.statusBarsPadding()) {
-                NuvioScreenHeader(title = "Discover", includeStatusBarPadding = false, modifier = Modifier.padding(horizontal = NuvioTokens.Space.s8))
+                NuvioScreenHeader(title = "Discover", includeStatusBarPadding = false, modifier = Modifier.padding(horizontal = NuvioTokens.Space.s16))
                 Text(
                     "Sports news and stories",
                     style = MaterialTheme.typography.bodyMedium,

@@ -599,8 +599,6 @@ private fun NetflixBottomButtons(
     onMenuOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var audioSubtitleMenu by remember { mutableStateOf(false) }
-    LaunchedEffect(audioSubtitleMenu) { onMenuOpenChange(audioSubtitleMenu) }
     val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
     val audioLabel = stringResource(Res.string.compose_player_audio)
     val subtitleLabel = stringResource(Res.string.compose_player_subtitles)
@@ -655,33 +653,13 @@ private fun NetflixBottomButtons(
                     compact = compact,
                     onClick = {
                         onInteraction()
+                        // One button, one panel, as on Netflix: audio and subtitles side by side.
                         when {
-                            // Netflix opens one sheet for both; here the two panels sit behind one button.
-                            onAudioClick != null && onSubtitleClick != null -> audioSubtitleMenu = !audioSubtitleMenu
-                            onAudioClick != null -> onAudioClick()
-                            else -> onSubtitleClick?.invoke()
+                            onSubtitleClick != null -> onSubtitleClick()
+                            else -> onAudioClick?.invoke()
                         }
                     },
                 )
-                if (audioSubtitleMenu && onAudioClick != null && onSubtitleClick != null) {
-                    Popup(
-                        popupPositionProvider = remember(gapPx) { NetflixPopupPosition(gapPx, above = true, alignEnd = false) },
-                        onDismissRequest = { audioSubtitleMenu = false },
-                        properties = PopupProperties(focusable = true),
-                    ) {
-                        NetflixMenuPanel(
-                            items = listOf(
-                                NetflixMenuItem(audioLabel, onAudioClick, painter = appIconPainter(AppIconResource.PlayerAudioFilled)),
-                                NetflixMenuItem(subtitleLabel, onSubtitleClick, painter = appIconPainter(AppIconResource.PlayerSubtitles)),
-                            ),
-                            onSelected = { item ->
-                                audioSubtitleMenu = false
-                                onInteraction()
-                                item.onClick()
-                            },
-                        )
-                    }
-                }
             }
         }
         onNextEpisodeClick?.let {

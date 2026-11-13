@@ -1,5 +1,8 @@
 package com.nuvio.app.features.settings
 
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -64,19 +67,24 @@ internal fun LazyListScope.contentDiscoveryContent(
                             Res.string.settings_content_discovery_addons_description
                         },
                     ),
+                    icon = androidx.compose.material.icons.Icons.Rounded.Extension,
                     isTablet = isTablet,
                     onClick = onAddonsClick,
                 )
+                SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.compose_settings_page_media_servers),
                     description = stringResource(Res.string.settings_content_discovery_media_servers_description),
+                    icon = androidx.compose.material.icons.Icons.Rounded.Dns,
                     isTablet = isTablet,
                     onClick = onMediaServersClick,
                 )
                 if (showPluginsEntry) {
+                    SettingsGroupDivider(isTablet = isTablet)
                     SettingsNavigationRow(
                         title = stringResource(Res.string.compose_settings_page_plugins),
                         description = stringResource(Res.string.settings_content_discovery_plugins_description),
+                        icon = androidx.compose.material.icons.Icons.Rounded.Widgets,
                         isTablet = isTablet,
                         onClick = onPluginsClick,
                     )

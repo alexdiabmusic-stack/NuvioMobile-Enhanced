@@ -1,5 +1,6 @@
 package com.nuvio.app.features.details.components
 
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -552,8 +553,8 @@ private fun detailActionSet(
     )
     val saveAction = DetailSecondaryAction(
         label = stringResource(if (isSaved) Res.string.hero_remove_from_library else Res.string.hero_add_to_library),
-        icon = Icons.Default.Add,
-        drawable = Res.drawable.sidebar_library.takeIf { isSaved },
+        // A check once it's saved, which reads as "in My List" better than the Library tab's own icon did.
+        icon = if (isSaved) Icons.Default.Check else Icons.Default.Add,
         isActive = isSaved,
         onClick = onSaveClick,
         onLongClick = onSaveLongClick,

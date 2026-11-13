@@ -105,11 +105,11 @@ fun DetailTrailersSection(
 
                 Box {
                     Surface(
-                        shape = RoundedCornerShape(sizing.selectorRadius),
-                        color = backdropControlColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                        shape = RoundedCornerShape(50),
+                        color = backdropControlColor(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
                         tonalElevation = 0.dp,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(sizing.selectorRadius))
+                            .clip(RoundedCornerShape(50))
                             .clickable { menuExpanded = true },
                     ) {
                         Row(

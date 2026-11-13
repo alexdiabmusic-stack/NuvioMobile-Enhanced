@@ -1,5 +1,6 @@
 package com.nuvio.app.features.sportsfocus
 
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -230,7 +231,7 @@ private fun UpNextCard(
         verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (live) "LIVE NOW" else "UP NEXT", style = MaterialTheme.typography.labelLarge, color = if (live) tokens.colors.danger else tokens.colors.accent, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(if (live) "LIVE NOW" else "UP NEXT", style = MaterialTheme.typography.labelLarge, color = if (live) tokens.colors.danger else tokens.colors.textMuted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Text(league?.short.orEmpty(), style = MaterialTheme.typography.labelLarge, color = tokens.colors.textMuted)
         }
         if (sides.size == 2) {
@@ -254,19 +255,19 @@ private fun UpNextCard(
             ev.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = tokens.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10)) {
+            // White and translucent pills, the same pair as the heroes elsewhere.
             Box(
-                Modifier.weight(1f).clip(RoundedCornerShape(NuvioTokens.Radius.lg)).background(tokens.colors.accent).clickable(onClick = onOpen).padding(vertical = NuvioTokens.Space.s12),
+                Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(50)).background(tokens.colors.textPrimary).clickable(onClick = onOpen),
                 contentAlignment = Alignment.Center,
-            ) { Text("Game Centre", style = MaterialTheme.typography.titleSmall, color = tokens.colors.onAccent, fontWeight = FontWeight.Bold) }
+            ) { Text("Game Centre", style = MaterialTheme.typography.titleSmall, color = tokens.colors.background, fontWeight = FontWeight.Bold) }
             if (!live) {
-                val shape = RoundedCornerShape(NuvioTokens.Radius.lg)
                 Row(
-                    Modifier.weight(1f).clip(shape).border(1.dp, tokens.colors.borderDefault, shape).clickable(onClick = onRemind).padding(vertical = NuvioTokens.Space.s12),
+                    Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(50)).background(tokens.colors.textPrimary.copy(alpha = 0.12f)).clickable(onClick = onRemind),
                     horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(if (reminded) Icons.Rounded.NotificationsActive else Icons.Rounded.Notifications, contentDescription = null, tint = tokens.colors.accent, modifier = Modifier.size(18.dp))
-                    Text(if (reminded) "Reminded" else "Remind Me", style = MaterialTheme.typography.titleSmall, color = tokens.colors.accent, fontWeight = FontWeight.SemiBold)
+                    Icon(if (reminded) Icons.Rounded.NotificationsActive else Icons.Rounded.Notifications, contentDescription = null, tint = tokens.colors.textPrimary, modifier = Modifier.size(18.dp))
+                    Text(if (reminded) "Reminded" else "Remind Me", style = MaterialTheme.typography.titleSmall, color = tokens.colors.textPrimary, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

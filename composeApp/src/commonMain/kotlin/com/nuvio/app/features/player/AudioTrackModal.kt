@@ -226,7 +226,7 @@ private fun NoAudioTracksText() {
 }
 
 @Composable
-private fun CenterMixSection(
+internal fun CenterMixSection(
     levelDb: Int,
     onLevelChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -261,7 +261,7 @@ private fun CenterMixSection(
 }
 
 @Composable
-private fun AudioAmplificationSection(
+internal fun AudioAmplificationSection(
     gainDb: Int,
     keep: Boolean,
     onGainChanged: (Int) -> Unit,
@@ -334,7 +334,7 @@ private fun AudioToggleChip(
 }
 
 @Composable
-private fun AudioDelaySection(
+internal fun AudioDelaySection(
     delayMs: Int,
     onDelayChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,

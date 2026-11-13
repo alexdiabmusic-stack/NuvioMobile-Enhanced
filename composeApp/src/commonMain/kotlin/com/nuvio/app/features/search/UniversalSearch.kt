@@ -135,6 +135,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import com.nuvio.app.navigation.LocalReserveProfileButton
+import com.nuvio.app.core.ui.collapsingTitle
 import kotlin.math.roundToInt
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
@@ -284,7 +285,7 @@ private fun UniversalSearchScreen(
     val use24h = use24h()
     var teamSheet by remember { mutableStateOf<TeamInfo?>(null) }
     var searchFocused by remember { mutableStateOf(false) }
-    val titleCollapse = remember { CollapsingTitleState() }
+    val titleCollapse = com.nuvio.app.core.ui.rememberNuvioCollapsingTitleState()
 
     LaunchedEffect(Unit) {
         AddonRepository.initialize()
@@ -427,14 +428,7 @@ private fun UniversalSearchScreen(
                         title = "Search",
                         topPadding = 0.dp,
                         modifier = Modifier
-                            .clipToBounds()
-                            .layout { measurable, constraints ->
-                                val placeable = measurable.measure(constraints)
-                                val shift = titleCollapse.offsetPx.roundToInt().coerceAtMost(placeable.height)
-                                layout(placeable.width, placeable.height - shift) { placeable.place(0, -shift) }
-                            }
-                            .onSizeChanged { titleCollapse.maxPx = it.height.toFloat() }
-                            .graphicsLayer { alpha = (1f - titleCollapse.fraction * 1.6f).coerceIn(0f, 1f) }
+                            .collapsingTitle(titleCollapse)
                             .padding(horizontal = 16.dp),
                     )
                     Spacer(Modifier.height(6.dp))
@@ -640,33 +634,6 @@ private fun UniversalSearchScreen(
         }
     }
     teamSheet?.let { t -> TeamSheet(t, sportsActions, onDismiss = { teamSheet = null }) }
-}
-
-/**
- * How far the large "Search" title has folded away. Scrolling up folds it before the list moves; scrolling down
- * unfolds it once the list is back at its top, the same as a large navigation title on iOS.
- */
-private class CollapsingTitleState {
-    var maxPx by mutableFloatStateOf(0f)
-    var offsetPx by mutableFloatStateOf(0f)
-        private set
-    val fraction: Float get() = if (maxPx <= 0f) 0f else (offsetPx / maxPx).coerceIn(0f, 1f)
-
-    val connection = object : NestedScrollConnection {
-        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            if (available.y >= 0f || maxPx <= 0f) return Offset.Zero
-            val before = offsetPx
-            offsetPx = (before - available.y).coerceAtMost(maxPx)
-            return Offset(0f, before - offsetPx)
-        }
-
-        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-            if (available.y <= 0f) return Offset.Zero
-            val before = offsetPx
-            offsetPx = (before - available.y).coerceAtLeast(0f)
-            return Offset(0f, before - offsetPx)
-        }
-    }
 }
 
 @Composable
