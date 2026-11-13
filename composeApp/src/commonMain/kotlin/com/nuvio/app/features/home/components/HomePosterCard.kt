@@ -1,5 +1,9 @@
 package com.nuvio.app.features.home.components
 
+import com.nuvio.app.features.tmdb.TmdbSettingsRepository
+import com.nuvio.app.features.tmdb.TmdbMetadataService
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.nuvio.app.core.format.formatReleaseDateForDisplay
@@ -26,6 +30,23 @@ fun HomePosterCard(
     val effectiveLandscapePoster = if (posterCardStyle.alwaysShowLandscapeClearlogo) null else item.landscapePoster
     val images = item.homePosterImages(posterCardStyle, useLandscapeBackdropMode)
 
+    // A wide still has no title in it, so a row that asks for wide cards gets each film's own title logo, the same
+    // artwork as the Home carousel. A film with none shows its plain name instead, whatever the hide-labels setting.
+    val needsLogoLookup = useLandscapeBackdropMode && showLandscapeOverlay &&
+        effectiveLandscapePoster.isNullOrBlank() && item.logo.isNullOrBlank()
+    val lookedUpLogo by produceState<TmdbMetadataService.TitleLogoLookup?>(null, item.id, needsLogoLookup) {
+        value = if (needsLogoLookup) {
+            runCatching {
+                TmdbMetadataService.fetchTitleLogo(item.id, item.type, TmdbSettingsRepository.snapshot().language)
+            }.getOrNull()
+        } else {
+            null
+        }
+    }
+    val logoUrl = item.logo?.takeIf { it.isNotBlank() } ?: lookedUpLogo?.url
+    // Until the lookup answers there is nothing on the card, so a name never flashes before its logo arrives.
+    val lookupPending = needsLogoLookup && lookedUpLogo == null
+
     NuvioPosterCard(
         title = item.name,
         imageUrl = images.imageUrl,
@@ -34,8 +55,12 @@ fun HomePosterCard(
         shape = images.shape,
         detailLine = if (isLandscapeMode || posterCardStyle.hideLabelsEnabled) null else item.releaseInfo?.let { formatReleaseDateForDisplay(it) },
         showTitleBelow = !posterCardStyle.hideLabelsEnabled,
-        bottomLeftLogoUrl = if (isLandscapeMode && showLandscapeOverlay && effectiveLandscapePoster.isNullOrBlank()) item.logo else null,
-        bottomLeftText = if (isLandscapeMode && showLandscapeOverlay && effectiveLandscapePoster.isNullOrBlank() && item.logo.isNullOrBlank() && !posterCardStyle.hideLabelsEnabled) item.name else null,
+        bottomLeftLogoUrl = if (isLandscapeMode && showLandscapeOverlay && effectiveLandscapePoster.isNullOrBlank()) logoUrl else null,
+        bottomLeftText = if (
+            isLandscapeMode && showLandscapeOverlay && effectiveLandscapePoster.isNullOrBlank() &&
+            logoUrl.isNullOrBlank() && !lookupPending &&
+            (useLandscapeBackdropMode || !posterCardStyle.hideLabelsEnabled)
+        ) item.name else null,
         isWatched = isWatched,
         onClick = onClick,
         onLongClick = onLongClick,

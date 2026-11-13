@@ -61,6 +61,47 @@ object TmdbMetadataService {
     private val backdropCache = linkedMapOf<String, String?>()
     private val backdropCacheMutex = Mutex()
     private val backdropRequests = Semaphore(4)
+    private val titleLogoCache = linkedMapOf<String, TitleLogoLookup>()
+    private val titleLogoCacheMutex = Mutex()
+    private val titleLogoRequests = Semaphore(4)
+
+    /** A title-logo answer: [url] is null when TMDB has no logo for the title. Kept so a miss isn't asked twice. */
+    class TitleLogoLookup(val url: String?)
+
+    /**
+     * The title's own logo artwork (the stylised name the Home carousel shows), for cards that only have a plain still.
+     * Null result inside the lookup means TMDB has none; a null lookup means it could not be asked (no key, offline).
+     */
+    suspend fun fetchTitleLogo(id: String, type: String, language: String): TitleLogoLookup? =
+        withContext(Dispatchers.Default) {
+            val mediaType = TmdbService.normalizeMediaType(type)
+            if (mediaType != "movie" && mediaType != "tv") return@withContext null
+            val normalizedLanguage = normalizeTmdbLanguage(language)
+            titleLogoRequests.withPermit {
+                val tmdbId = TmdbService.ensureTmdbId(id, mediaType) ?: return@withPermit null
+                val cacheKey = "$tmdbId:$mediaType:$normalizedLanguage"
+                titleLogoCacheMutex.withLock { titleLogoCache[cacheKey]?.let { return@withPermit it } }
+                val images = fetch<TmdbImagesResponse>(
+                    endpoint = "$mediaType/$tmdbId/images",
+                    query = mapOf("include_image_language" to tmdbImageLanguages(normalizedLanguage)),
+                ) ?: return@withPermit null
+                val logo = TitleLogoLookup(
+                    buildImageUrl(
+                        images.logos.selectTitleLogoPath(
+                            normalizedLanguage = normalizedLanguage,
+                            originalLanguage = null,
+                            preferOriginal = false,
+                        ),
+                        "w500",
+                    ),
+                )
+                titleLogoCacheMutex.withLock {
+                    titleLogoCache[cacheKey] = logo
+                    if (titleLogoCache.size > 512) titleLogoCache.remove(titleLogoCache.keys.first())
+                }
+                logo
+            }
+        }
 
     suspend fun fetchLocalizedBackdrop(id: String, type: String, language: String): String? =
         withContext(Dispatchers.Default) {
