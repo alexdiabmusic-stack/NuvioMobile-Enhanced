@@ -1,5 +1,6 @@
 package com.nuvio.app.core.ui
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
@@ -123,6 +124,8 @@ fun NuvioFloatingPrompt(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = navBarBottom + NuvioTokens.Space.s72)
+                // Clear of the iPhone Duo's side strip (and the tab rail in it); zero on other phones.
+                .padding(PaddingValues().withVerticalBar())
                 .padding(horizontal = tokens.spacing.screenHorizontal)
                 .offset { IntOffset(0, dragOffsetY.value.roundToInt().coerceAtLeast(0)) }
                 .pointerInput(Unit) {

@@ -129,6 +129,7 @@ private const val HERO_SWIPE_VELOCITY_THRESHOLD = 300f
 private const val HERO_AUTO_SCROLL_INTERVAL_MS = 8_000L
 private const val MOBILE_HERO_VIEWPORT_RATIO = 0.82f
 private const val MOBILE_PORTRAIT_HERO_WIDTH_RATIO = 1.5f
+private const val MOBILE_PORTRAIT_HERO_MAX_VIEWPORT_FRACTION = 0.78f
 private const val MOBILE_HERO_MIN_HEIGHT_DP = 360f
 private const val MOBILE_HERO_MAX_HEIGHT_DP = 760f
 private const val TABLET_LANDSCAPE_HERO_HEIGHT_MULTIPLIER = 1.5f
@@ -1059,7 +1060,11 @@ private fun mobileHeroHeight(
     val isPortraitViewport = viewportHeightDp?.let { it >= maxWidthDp } != false
 
     if (isPortraitViewport) {
-        return (maxWidthDp * MOBILE_PORTRAIT_HERO_WIDTH_RATIO).dp
+        // Sized from the width, but never taller than most of the screen: on a wide, short screen (the iPhone Duo's
+        // outer display) width x 1.5 is taller than the whole screen and pushes Play under the tab bar.
+        val fromWidth = maxWidthDp * MOBILE_PORTRAIT_HERO_WIDTH_RATIO
+        val cap = viewportHeightDp?.let { it * MOBILE_PORTRAIT_HERO_MAX_VIEWPORT_FRACTION } ?: fromWidth
+        return minOf(fromWidth, cap).dp
     }
 
     val viewportDrivenHeight = viewportHeightDp?.let { (it * MOBILE_HERO_VIEWPORT_RATIO).dp }

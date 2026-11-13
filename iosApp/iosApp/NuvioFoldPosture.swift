@@ -88,6 +88,9 @@ final class NuvioFoldPostureView: UIView {
 struct NuvioFoldTabRail: View {
     @ObservedObject var appCoordinator: AppNavigationCoordinator
     @ObservedObject var iconStore: NativeTabIconStore
+    /// Width of the Duo's trailing system strip (under the clock and camera). When the rail fits in it, it sits there,
+    /// bottom-aligned, instead of floating over the app; 0 keeps the old floating rail.
+    var gutter: CGFloat = 0
     @ObservedObject private var posture = NuvioFoldPosture.shared
 
     private var trailingSafeInset: CGFloat {
@@ -97,8 +100,34 @@ struct NuvioFoldTabRail: View {
     }
 
     var body: some View {
+        if gutter >= NuvioFoldPosture.railWidth {
+            gutterBody
+        } else {
+            floatingBody
+        }
+    }
+
+    /// The rail in the trailing strip: centred in it, bottom-aligned above the home indicator (thumb reach, and clear
+    /// of the clock and camera at the top of the strip).
+    private var gutterBody: some View {
         let accent = Color(uiColor: iconStore.accentColor)
-        GeometryReader { proxy in
+        return GeometryReader { proxy in
+            VStack(spacing: 2) {
+                ForEach(appCoordinator.barTabs, id: \.self) { tab in
+                    item(tab, accent: accent)
+                }
+            }
+            .padding(6)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+            .padding(.trailing, max(4, (gutter - NuvioFoldPosture.railWidth) / 2))
+            .padding(.bottom, max(proxy.safeAreaInsets.bottom, 12) + 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        }
+    }
+
+    private var floatingBody: some View {
+        let accent = Color(uiColor: iconStore.accentColor)
+        return GeometryReader { proxy in
             let availableHeight = posture.foldTop > 0 ? posture.foldTop : proxy.size.height
             VStack(spacing: 2) {
                 ForEach(appCoordinator.barTabs, id: \.self) { tab in

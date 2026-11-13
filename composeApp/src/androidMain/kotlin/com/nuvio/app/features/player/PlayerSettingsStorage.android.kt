@@ -145,6 +145,7 @@ actual object PlayerSettingsStorage {
     private const val subtitleFontSizeSpKey = "subtitle_font_size_sp"
     private const val subtitleShowOnlyPreferredLanguagesKey = "subtitle_show_only_preferred_languages"
     private const val subtitleChooseFilesKey = "subtitle_choose_files"
+    private const val audioTrackDetailsKey = "audio_track_details"
     private const val subtitleStripSdhKey = "subtitle_strip_sdh"
     private const val subtitleUseForcedSubtitlesKey = "subtitle_use_forced_subtitles"
     private const val tunnelingEnabledKey = "tunneling_enabled"
@@ -183,6 +184,7 @@ actual object PlayerSettingsStorage {
         subtitleUseForcedSubtitlesKey,
         subtitleShowOnlyPreferredLanguagesKey,
         subtitleChooseFilesKey,
+        audioTrackDetailsKey,
         streamReuseLastLinkEnabledKey,
         streamReuseLastLinkCacheHoursKey,
         androidPlaybackEngineKey,
@@ -874,6 +876,23 @@ actual object PlayerSettingsStorage {
         preferences
             ?.edit()
             ?.putBoolean(ProfileScopedKey.of(subtitleChooseFilesKey), enabled)
+            ?.apply()
+    }
+
+    actual fun loadAudioTrackDetails(): Boolean? =
+        preferences?.let { sharedPreferences ->
+            val key = ProfileScopedKey.of(audioTrackDetailsKey)
+            if (sharedPreferences.contains(key)) {
+                sharedPreferences.getBoolean(key, SubtitleStyleState.DEFAULT.showAudioTrackDetails)
+            } else {
+                null
+            }
+        }
+
+    actual fun saveAudioTrackDetails(enabled: Boolean) {
+        preferences
+            ?.edit()
+            ?.putBoolean(ProfileScopedKey.of(audioTrackDetailsKey), enabled)
             ?.apply()
     }
 
@@ -1994,6 +2013,7 @@ actual object PlayerSettingsStorage {
         loadSubtitleUseForcedSubtitles()?.let { put(subtitleUseForcedSubtitlesKey, encodeSyncBoolean(it)) }
         loadSubtitleShowOnlyPreferredLanguages()?.let { put(subtitleShowOnlyPreferredLanguagesKey, encodeSyncBoolean(it)) }
         loadSubtitleChooseFiles()?.let { put(subtitleChooseFilesKey, encodeSyncBoolean(it)) }
+        loadAudioTrackDetails()?.let { put(audioTrackDetailsKey, encodeSyncBoolean(it)) }
         loadStreamReuseLastLinkEnabled()?.let { put(streamReuseLastLinkEnabledKey, encodeSyncBoolean(it)) }
         loadStreamReuseLastLinkCacheHours()?.let { put(streamReuseLastLinkCacheHoursKey, encodeSyncInt(it)) }
         loadAndroidPlaybackEngine()?.let { put(androidPlaybackEngineKey, encodeSyncString(it)) }
@@ -2096,6 +2116,7 @@ actual object PlayerSettingsStorage {
         payload.decodeSyncBoolean(subtitleUseForcedSubtitlesKey)?.let(::saveSubtitleUseForcedSubtitles)
         payload.decodeSyncBoolean(subtitleShowOnlyPreferredLanguagesKey)?.let(::saveSubtitleShowOnlyPreferredLanguages)
         payload.decodeSyncBoolean(subtitleChooseFilesKey)?.let(::saveSubtitleChooseFiles)
+        payload.decodeSyncBoolean(audioTrackDetailsKey)?.let(::saveAudioTrackDetails)
         payload.decodeSyncBoolean(streamReuseLastLinkEnabledKey)?.let(::saveStreamReuseLastLinkEnabled)
         payload.decodeSyncInt(streamReuseLastLinkCacheHoursKey)?.let(::saveStreamReuseLastLinkCacheHours)
         payload.decodeSyncString(androidPlaybackEngineKey)?.let(::saveAndroidPlaybackEngine)

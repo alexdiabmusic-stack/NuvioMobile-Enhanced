@@ -117,4 +117,5 @@ internal fun SubtitleStyleState.resetAppearance(): SubtitleStyleState = Subtitle
     useForcedSubtitles = useForcedSubtitles,
     showOnlyPreferredLanguages = showOnlyPreferredLanguages,
     chooseSubtitleFiles = chooseSubtitleFiles,
+    showAudioTrackDetails = showAudioTrackDetails,
 )

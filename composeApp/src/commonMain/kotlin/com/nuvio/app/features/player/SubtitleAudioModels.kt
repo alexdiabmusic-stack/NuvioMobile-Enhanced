@@ -100,6 +100,8 @@ data class SubtitleStyleState(
     val showOnlyPreferredLanguages: Boolean = false,
     /** Off: the subtitle list is just languages and a tap picks the first file. On: each language's files can be chosen. */
     val chooseSubtitleFiles: Boolean = false,
+    /** Off: audio tracks read "English", "Spanish (Latin America)". On: their sound format and the stream's own label too. */
+    val showAudioTrackDetails: Boolean = false,
     val appearance: SubtitleAppearance = SubtitleAppearance(),
 ) {
     companion object {

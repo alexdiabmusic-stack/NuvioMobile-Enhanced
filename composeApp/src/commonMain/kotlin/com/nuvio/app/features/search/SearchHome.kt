@@ -80,6 +80,8 @@ internal sealed interface SearchPage {
     /** One curated collection page: hero art, then titled sections of posters. */
     data class Collection(val id: String) : SearchPage
     data object Genres : SearchPage
+    /** One genre's own page: a hero and rows of its titles. */
+    data class Genre(val index: Int) : SearchPage
     data object Decades : SearchPage
     data class People(val directors: Boolean) : SearchPage
 }
@@ -89,6 +91,7 @@ internal fun SearchPage.title(): String = when (this) {
     SearchPage.Franchises -> "Movie Universes"
     is SearchPage.Collection -> COLLECTION_DEFS[id]?.title.orEmpty()
     SearchPage.Genres -> "Genres"
+    is SearchPage.Genre -> SEARCH_GENRES.getOrNull(index)?.name.orEmpty()
     SearchPage.Decades -> "Decades"
     is SearchPage.People -> if (directors) "Directors" else "Actors"
 }
@@ -288,9 +291,9 @@ internal fun SearchBrowsePage(
             is SearchPage.Collection -> COLLECTION_DEFS[page.id]?.let { def ->
                 CollectionPageContent(def, onBack, watchedKeys, fullyWatchedSeriesKeys, onPosterClick, onPosterLongClick)
             }
-            SearchPage.Genres -> ListPage(SEARCH_GENRES.map { it.name }) { index ->
-                val genre = SEARCH_GENRES[index]
-                onOpen(movieAndSeries(genre.name, genreSpec(genre, tv = false), genreSpec(genre, tv = true)))
+            SearchPage.Genres -> GenresIndexContent(onOpen)
+            is SearchPage.Genre -> SEARCH_GENRES.getOrNull(page.index)?.let { genre ->
+                GenreHubContent(genre, onOpen, onPosterClick, onPosterLongClick)
             }
             SearchPage.Decades -> ListPage(SEARCH_DECADES.map { "${it}s" }) { index ->
                 val start = SEARCH_DECADES[index]

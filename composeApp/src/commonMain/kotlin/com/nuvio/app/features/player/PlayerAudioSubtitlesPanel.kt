@@ -215,7 +215,7 @@ internal fun PlayerAudioSubtitlesPanel(
                     AudioSubtitlesPage.Main -> BoxWithConstraints(Modifier.fillMaxSize().padding(top = 56.dp, start = 24.dp, end = 24.dp)) {
                         val sideBySide = maxWidth >= 520.dp && showSubtitles
                         val audio: LazyListScope.() -> Unit = {
-                            audioColumn(audioTracks, selectedAudioIndex, onAudioTrackSelected, hasAudioAdjustments, withHeading = !sideBySide) {
+                            audioColumn(audioTracks, selectedAudioIndex, onAudioTrackSelected, hasAudioAdjustments, withHeading = !sideBySide, showDetails = subtitleStyle.showAudioTrackDetails) {
                                 page = AudioSubtitlesPage.AudioAdjustments
                             }
                         }
@@ -320,6 +320,7 @@ private fun LazyListScope.audioColumn(
     onSelect: (Int) -> Unit,
     hasAdjustments: Boolean,
     withHeading: Boolean,
+    showDetails: Boolean,
     onAdjustments: () -> Unit,
 ) {
     if (withHeading) item(key = "audio-heading") { ColumnHeading(stringResource(Res.string.compose_player_audio)) }
@@ -333,15 +334,21 @@ private fun LazyListScope.audioColumn(
             )
         }
     }
-    items(tracks, key = { "audio:${it.index}:${it.id}" }) { track ->
-        val name = localizedTrackDisplayName(track.label, track.language, track.index)
-        val language: String? = track.language?.takeIf { it.isNotBlank() && it != "und" }?.let { languageLabelForCode(it) }
-        ChoiceRow(
-            label = name,
-            detail = language?.takeIf { !name.contains(it, ignoreCase = true) },
-            selected = track.index == selectedIndex,
-            onClick = { onSelect(track.index) },
-        )
+    item(key = "audio-tracks") {
+        // Plain names ("English", "Spanish (Latin America)"); the technical label only with the setting on.
+        val labels = tracks.mapNotNull { it.language?.takeIf(String::isNotBlank) }.distinct().associateWith { languageLabelForCode(it) }
+        val names = remember(tracks, labels) { friendlyAudioNames(tracks) { code -> labels[code] ?: code } }
+        Column {
+            tracks.forEach { track ->
+                val friendly = names[track.index]
+                ChoiceRow(
+                    label = friendly?.name ?: track.label,
+                    detail = if (showDetails) listOfNotNull(friendly?.detail, track.label.takeIf { it.isNotBlank() && it != friendly?.name }).joinToString(" · ").ifBlank { null } else null,
+                    selected = track.index == selectedIndex,
+                    onClick = { onSelect(track.index) },
+                )
+            }
+        }
     }
     if (hasAdjustments) item(key = "audio-more") { LinkRow("Audio delay & volume", onClick = onAdjustments) }
 }

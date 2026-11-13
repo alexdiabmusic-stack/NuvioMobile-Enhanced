@@ -1984,9 +1984,17 @@ struct NativeNavContentView: View {
     @StateObject private var iconStore = NativeTabIconStore()
     @ObservedObject private var foldPosture = NuvioFoldPosture.shared
 
-    /// iPhone Duo half-open: the bottom bar becomes a trailing rail. Never true on regular iPhones.
+    /// Width of the trailing system strip the iPhone Duo keeps beside the app in portrait (the clock and camera sit at
+    /// its top). 0 on every other iPhone and iPad.
+    @State private var trailingGutter: CGFloat = 0
+
+    /// The tabs go into that strip whenever it is wide enough for them, so they never sit on top of the app.
+    private var railFitsGutter: Bool { trailingGutter >= NuvioFoldPosture.railWidth }
+
+    /// iPhone Duo: the bottom bar becomes a trailing rail, half-open or in the trailing strip. Never true on regular
+    /// iPhones.
     private var showsFoldRail: Bool {
-        foldPosture.isHalfOpen &&
+        (foldPosture.isHalfOpen || railFitsGutter) &&
             appCoordinator.usesGlassTabBarOverlay &&
             appCoordinator.isAppReady &&
             appCoordinator.isSelectedTabAtRoot
@@ -2125,7 +2133,7 @@ struct NativeNavContentView: View {
         )
         .overlay(alignment: .bottom) {
             if showsFoldRail {
-                NuvioFoldTabRail(appCoordinator: appCoordinator, iconStore: iconStore)
+                NuvioFoldTabRail(appCoordinator: appCoordinator, iconStore: iconStore, gutter: railFitsGutter ? trailingGutter : 0)
                     .ignoresSafeArea(.all)
             } else if appCoordinator.usesGlassTabBarOverlay &&
                 appCoordinator.isAppReady &&
@@ -2143,8 +2151,16 @@ struct NativeNavContentView: View {
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .background(NuvioFoldPostureReader().ignoresSafeArea())
-        .onAppear { NuvioFoldPosture.shared.setRailVisible(showsFoldRail) }
-        .onChange(of: showsFoldRail) { visible in
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { trailingGutter = proxy.safeAreaInsets.trailing }
+                    .onChange(of: proxy.safeAreaInsets.trailing) { trailingGutter = $0 }
+            }
+        )
+        // A rail in the strip takes nothing from the app; only the floating rail pushes the content aside.
+        .onAppear { NuvioFoldPosture.shared.setRailVisible(showsFoldRail && !railFitsGutter) }
+        .onChange(of: showsFoldRail && !railFitsGutter) { visible in
             NuvioFoldPosture.shared.setRailVisible(visible)
         }
     }

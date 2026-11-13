@@ -672,13 +672,15 @@ private fun MobileSettingsScreen(
                     val previousPage = page.previousPage()
                     if (collapsesTitle) {
                         // A fixed band behind the status bar, with the large title folding away beneath it.
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .nuvioScreenSideBleed()
-                                .appBackgroundCover(MaterialTheme.nuvio.colors.background),
-                        ) {
-                            Spacer(Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding()))
+                        Column(Modifier.fillMaxWidth()) {
+                            // Only the band bleeds to the edges; the header keeps its own side padding.
+                            Spacer(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .nuvioScreenSideBleed()
+                                    .appBackgroundCover(MaterialTheme.nuvio.colors.background)
+                                    .height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding()),
+                            )
                             NuvioScreenHeader(
                                 title = stringResource(page.titleRes),
                                 includeStatusBarPadding = false,

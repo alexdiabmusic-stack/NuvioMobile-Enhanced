@@ -58,6 +58,17 @@ internal fun PlaybackAudioSettings(
                 )
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
+                    title = "Show audio track details",
+                    description = "Show each track's sound format and full technical name in the player",
+                    checked = settings.subtitleStyle.showAudioTrackDetails,
+                    enabled = !settings.externalPlayerEnabled,
+                    isTablet = isTablet,
+                    onCheckedChange = { enabled ->
+                        PlayerSettingsRepository.setSubtitleStyle(settings.subtitleStyle.copy(showAudioTrackDetails = enabled))
+                    },
+                )
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
                     title = stringResource(Res.string.settings_playback_night_mode_button),
                     description = stringResource(Res.string.settings_playback_night_mode_button_description),
                     checked = settings.nightModeButtonEnabled,

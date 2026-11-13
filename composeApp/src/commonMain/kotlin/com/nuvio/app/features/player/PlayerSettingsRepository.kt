@@ -446,6 +446,8 @@ object PlayerSettingsRepository {
                 ?: SubtitleStyleState.DEFAULT.showOnlyPreferredLanguages,
             chooseSubtitleFiles = PlayerSettingsStorage.loadSubtitleChooseFiles()
                 ?: SubtitleStyleState.DEFAULT.chooseSubtitleFiles,
+            showAudioTrackDetails = PlayerSettingsStorage.loadAudioTrackDetails()
+                ?: SubtitleStyleState.DEFAULT.showAudioTrackDetails,
             appearance = decodeSubtitleAppearance(PlayerSettingsStorage.loadSubtitleAppearance()),
         )
         streamReuseLastLinkEnabled = PlayerSettingsStorage.loadStreamReuseLastLinkEnabled() ?: false
@@ -851,6 +853,7 @@ object PlayerSettingsRepository {
         PlayerSettingsStorage.saveSubtitleUseForcedSubtitles(normalized.useForcedSubtitles)
         PlayerSettingsStorage.saveSubtitleShowOnlyPreferredLanguages(normalized.showOnlyPreferredLanguages)
         PlayerSettingsStorage.saveSubtitleChooseFiles(normalized.chooseSubtitleFiles)
+        PlayerSettingsStorage.saveAudioTrackDetails(normalized.showAudioTrackDetails)
     }
 
     fun setStreamReuseLastLinkEnabled(enabled: Boolean) {
